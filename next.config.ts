@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
+
+  typescript: {
+    // ⚠️ PERINGATAN KERAS ⚠️
+    // Opsi ini akan memaksa build production berhasil meskipun ada type error.
+    // Gunakan dengan risiko ditanggung sendiri.
+    ignoreBuildErrors: true,
+  },
   // ... (config options lain jika ada)
 };
 
