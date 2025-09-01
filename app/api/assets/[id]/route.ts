@@ -1,25 +1,22 @@
 // app/api/assets/[id]/route.ts
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"; // <-- 1. Tambahkan import 'NextRequest'
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
 
-// --- FUNGSI UPDATE YANG LEBIH FLEKSIBEL ---
+// --- FUNGSI UPDATE YANG DIPERBAIKI ---
 export async function PUT(
-  req: Request,
+  req: NextRequest, // <-- 2. Ganti 'Request' menjadi 'NextRequest'
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params;
     const body = await req.json();
 
-    // --- PERUBAHAN UTAMA DI SINI ---
-    // Kita buat objek kosong untuk menampung data yang akan diupdate
     const dataToUpdate: any = {};
 
-    // Cek setiap field, jika ada di body, baru tambahkan ke dataToUpdate
     if (body.productName !== undefined) dataToUpdate.productName = body.productName;
     if (body.purchaseDate !== undefined) dataToUpdate.purchaseDate = new Date(body.purchaseDate);
     if (body.locationId !== undefined) dataToUpdate.locationId = parseInt(body.locationId, 10);
@@ -27,15 +24,13 @@ export async function PUT(
     if (body.price !== undefined) dataToUpdate.price = new Decimal(body.price);
     if (body.usefulLife !== undefined) dataToUpdate.usefulLife = parseInt(body.usefulLife, 10);
     if (body.salvageValue !== undefined) dataToUpdate.salvageValue = new Decimal(body.salvageValue);
-    if (body.picName !== undefined) dataToUpdate.picName = body.picName; // Menggunakan picName sesuai skema
-    if (body.picContact !== undefined) dataToUpdate.picContact = body.picContact; // Menggunakan picContact
+    if (body.picName !== undefined) dataToUpdate.picName = body.picName;
+    if (body.picContact !== undefined) dataToUpdate.picContact = body.picContact;
     if (body.status !== undefined) dataToUpdate.status = body.status;
     
-    // --- AKHIR PERUBAHAN ---
-
     const updatedAsset = await prisma.asset.update({
       where: { id: id },
-      data: dataToUpdate, // Gunakan objek yang sudah kita filter
+      data: dataToUpdate,
     });
 
     return NextResponse.json(updatedAsset);
@@ -45,14 +40,13 @@ export async function PUT(
   }
 }
 
-// --- FUNGSI DELETE (TIDAK BERUBAH) ---
+// --- FUNGSI DELETE YANG JUGA DIPERBAIKI ---
 export async function DELETE(
-  req: Request,
+  req: NextRequest, // <-- 2. Ganti 'Request' menjadi 'NextRequest'
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params;
-    // Pastikan semua relasi maintenance dihapus dulu sebelum aset dihapus
     await prisma.maintenance.deleteMany({
       where: { assetId: id },
     });
