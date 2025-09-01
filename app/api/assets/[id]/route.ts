@@ -1,17 +1,17 @@
 // app/api/assets/[id]/route.ts
 
-import { NextRequest, NextResponse } from "next/server"; // <--- PERUBAHAN 1: Tambahkan NextRequest
+import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { Decimal } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
 
 export async function PUT(
-  req: NextRequest, // <--- PERUBAHAN 2: Ganti tipe req menjadi NextRequest
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: { id: string } } // <--- INI PERUBAHAN UTAMANYA
 ) {
   try {
-    const { id } = params;
+    const { id } = context.params; // <--- dan cara mengambil 'id' nya
     const body = await req.json();
 
     const dataToUpdate: any = {};
@@ -39,13 +39,12 @@ export async function PUT(
   }
 }
 
-// FUNGSI DELETE (TIDAK PERLU DIUBAH, TAPI BAIKNYA DISERAGAMKAN JUGA)
 export async function DELETE(
-  req: NextRequest, // <-- Bisa diseragamkan juga
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: { id: string } } // <-- Sekalian kita seragamkan
 ) {
   try {
-    const { id } = params;
+    const { id } = context.params;
     await prisma.maintenance.deleteMany({
       where: { assetId: id },
     });
