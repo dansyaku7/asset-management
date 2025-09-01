@@ -1,0 +1,88 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  fullName  String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  role      Role     @relation(fields: [roleId], references: [id])
+  roleId    Int
+}
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+}
+
+model Location {
+  id      Int     @id @default(autoincrement())
+  name    String  @unique
+  address String?
+  assets  Asset[]
+}
+
+model Asset {
+  id           String      @id @default(cuid())
+  productName  String
+  status       AssetStatus @default(BAIK)
+  purchaseDate DateTime
+  location     Location    @relation(fields: [locationId], references: [id])
+  locationId   Int
+  picName      String?
+  picContact   String?
+  assetType    String
+  barcode      String      @unique
+  price        Decimal     @db.Decimal(12, 2)
+  usefulLife   Int
+  salvageValue Decimal     @db.Decimal(12, 2)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // --- TAMBAHAN DI SINI ---
+  // Menambahkan relasi ke tabel Maintenance
+  maintenances Maintenance[]
+}
+
+enum AssetStatus {
+  BAIK
+  RUSAK
+  PERBAIKAN
+}
+
+// --- MODEL & ENUM BARU DI SINI ---
+
+model Maintenance {
+  id              String             @id @default(cuid())
+  description     String
+  status          MaintenanceStatus  @default(SCHEDULED)
+  cost            Float?             // Biaya perbaikan (opsional)
+  scheduledDate   DateTime?          // Tanggal dijadwalkan
+  completionDate  DateTime?          // Tanggal selesai
+  notes           String?            @db.Text
+  
+  asset           Asset              @relation(fields: [assetId], references: [id])
+  assetId         String
+  
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
