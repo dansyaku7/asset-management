@@ -1,15 +1,15 @@
-// app/dashboardAsset/page.tsx
-
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
 import type { Asset, User, Location } from "@prisma/client";
-
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title } from 'chart.js';
 import { Doughnut, Line } from 'react-chartjs-2';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { format, isSameDay } from 'date-fns';
 import { id } from 'date-fns/locale';
+
+import JurnalTerakhir from "./components/JurnalTerakhir";
+import NotificationWidget from "./components/NotificationWidget";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, Title);
 
@@ -19,7 +19,9 @@ type AssetWithDetails = Asset & {
   currentValue: number;
   accumulatedDepreciation: number;
   price: number;
+  notification: { type: 'warning' | 'error', message: string } | null;
 };
+
 type ApiResponse = {
   summary: {
     totalInitialValue: number;
@@ -32,7 +34,7 @@ type ApiResponse = {
 const formatRupiah = (value: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
 const DonutChartCard = ({ title, data, summaryText }: { title: string; data: any; summaryText: React.ReactNode; }) => ( <div className="bg-white p-6 rounded-lg shadow-md"><h3 className="text-lg font-bold text-gray-800 mb-4">{title}</h3><div className="flex flex-col md:flex-row items-center gap-6"><div className="w-32 h-32"><svg className="w-full h-full" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}><circle cx="18" cy="18" r="15.915" fill="#fff" /><circle cx="18" cy="18" r="15.915" fill="none" stroke="#e6e6e6" strokeWidth="3" /><circle cx="18" cy="18" r="15.915" fill="none" stroke={data.color1 || "#fdba74"} strokeWidth="3" strokeDasharray={`${data.percent1}, 100`} /><circle cx="18" cy="18" r="15.915" fill="none" stroke={data.color2 || "#60a5fa"} strokeWidth="3" strokeDasharray={`${data.percent2}, 100`} strokeDashoffset={`-${data.percent1}`} /></svg></div><div className="text-sm text-gray-600 space-y-2">{summaryText}</div></div></div> );
 const LineChartCard = ({ data, options }: { data: any, options: any }) => ( <div className="bg-white p-6 rounded-lg shadow-md"><h3 className="text-lg font-bold text-gray-800 mb-4">Pertumbuhan Nilai Aset vs. Akumulasi Penyusutan</h3><div className="h-64 relative"><Line data={data} options={options} /></div></div> );
-const CalendarCard = ({ assets, selectedDate, onSelectDate }: { assets: AssetWithDetails[], selectedDate?: Date, onSelectDate: (date?: Date) => void }) => ( <div className="bg-white p-6 rounded-lg shadow-md"><h3 className="text-lg font-bold text-gray-800 mb-4">Kalender Aset</h3><div className="flex justify-center"><DayPicker mode="single" selected={selectedDate} onSelect={onSelectDate} locale={id} modifiers={{ purchased: assets.map(a => a.purchaseDate ? new Date(a.purchaseDate) : null).filter((d): d is Date => d !== null) }} modifiersStyles={{ purchased: { fontWeight: 'bold', color: '#01449D' } }} /></div></div> );
+const CalendarCard = ({ assets, selectedDate, onSelectDate }: { assets: AssetWithDetails[], selectedDate?: Date, onSelectDate: (date?: Date) => void }) => ( <div className="bg-white p-6 rounded-lg shadow-md h-full"><h3 className="text-lg font-bold text-gray-800 mb-4">Kalender Aset</h3><div className="flex justify-center"><DayPicker mode="single" selected={selectedDate} onSelect={onSelectDate} locale={id} modifiers={{ purchased: assets.map(a => a.purchaseDate ? new Date(a.purchaseDate) : null).filter((d): d is Date => d !== null) }} modifiersStyles={{ purchased: { fontWeight: 'bold', color: '#01449D' } }} /></div></div> );
 const JournalCard = ({ assets, selectedDate }: { assets: AssetWithDetails[], selectedDate?: Date }) => ( <div className="bg-white p-6 rounded-lg shadow-md"><h3 className="text-lg font-bold text-gray-800 mb-4">Jurnal {selectedDate ? format(selectedDate, 'd MMM yyyy', { locale: id }) : 'Terakhir'}</h3><div className="space-y-4 max-h-60 overflow-y-auto pr-2">{assets.length > 0 ? ( assets.map(asset => ( <div key={asset.id} className="border-b pb-2"><p className="font-bold text-[#01449D]">{asset.productName.toUpperCase()}</p><p className="text-sm text-gray-500">Tgl Beli: {new Date(asset.purchaseDate).toLocaleDateString("id-ID")}</p><p className="text-sm text-gray-500">Harga: {formatRupiah(asset.price)}</p><p className="text-sm text-gray-500">Lokasi: {asset.location.name}</p></div> )) ) : (<p className="text-sm text-gray-500 text-center pt-8">Tidak ada pembelian pada tanggal ini.</p>)}</div></div> );
 
 
@@ -60,6 +62,11 @@ export default function AssetDashboardPage() {
     fetchData();
   }, []);
 
+  const assetsWithNotifications = useMemo(() => {
+    if (!data) return [];
+    return data.assets.filter(asset => asset.notification);
+  }, [data]);
+
   const filteredAssets = useMemo(() => {
     if (!selectedDate || !data) return [];
     return data.assets.filter(asset =>
@@ -69,21 +76,13 @@ export default function AssetDashboardPage() {
   
   const lineChartData = useMemo(() => {
     if (!data) return { labels: [], datasets: [] };
-    
     const sortedAssets = [...data.assets].sort((a, b) => new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime());
-    
-    const labels: string[] = [];
-    const assetValues: number[] = [];
-    const depreciationValues: number[] = [];
-    let cumulativeAssetValue = 0;
-    let cumulativeDepreciation = 0;
-
+    const labels: string[] = []; const assetValues: number[] = []; const depreciationValues: number[] = [];
+    let cumulativeAssetValue = 0; let cumulativeDepreciation = 0;
     sortedAssets.forEach(asset => {
         const monthYear = format(new Date(asset.purchaseDate), 'MMM yyyy', { locale: id });
         cumulativeAssetValue += asset.price;
-        // Asumsi penyusutan juga dihitung dari data yang datang dari API
         cumulativeDepreciation += asset.accumulatedDepreciation;
-
         const lastLabel = labels[labels.length - 1];
         if (lastLabel === monthYear) {
             assetValues[assetValues.length - 1] = cumulativeAssetValue;
@@ -94,27 +93,10 @@ export default function AssetDashboardPage() {
             depreciationValues.push(cumulativeDepreciation);
         }
     });
-
     return {
-        labels,
-        datasets: [
-            {
-                label: 'Akumulasi Nilai Aset',
-                data: assetValues,
-                borderColor: '#3b82f6', // Biru
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                fill: true,
-                tension: 0.3,
-            },
-            // --- DATASET BARU UNTUK PENYUSUTAN ---
-            {
-                label: 'Akumulasi Penyusutan',
-                data: depreciationValues,
-                borderColor: '#ef4444', // Merah
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                fill: true,
-                tension: 0.3,
-            }
+        labels, datasets: [
+            { label: 'Akumulasi Nilai Aset', data: assetValues, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.3, },
+            { label: 'Akumulasi Penyusutan', data: depreciationValues, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.3, }
         ]
     }
   }, [data]);
@@ -124,7 +106,6 @@ export default function AssetDashboardPage() {
   if (!data) return <div className="text-center p-8">Tidak ada data.</div>;
 
   const { summary, assets } = data;
-  
   const totalAssets = assets.length;
   const activeAssetsCount = assets.filter(asset => asset.status === 'BAIK').length;
   const inactiveAssetsCount = totalAssets - activeAssetsCount;
@@ -138,7 +119,7 @@ export default function AssetDashboardPage() {
     maintainAspectRatio: false,
     plugins: { 
         legend: { 
-            display: true, // Tampilkan legend untuk membedakan garis
+            display: true, 
             position: 'top' as const,
         } 
     },
@@ -147,6 +128,8 @@ export default function AssetDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <NotificationWidget assets={assetsWithNotifications} />
+    
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DonutChartCard
           title="Aset Aktif"
@@ -174,10 +157,15 @@ export default function AssetDashboardPage() {
       
       <LineChartCard data={lineChartData} options={lineChartOptions} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* --- PERUBAHAN DI SINI --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-start">
         <CalendarCard assets={assets} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
-        <JournalCard assets={filteredAssets} selectedDate={selectedDate} />
+        <div className="space-y-6">
+          <JournalCard assets={filteredAssets} selectedDate={selectedDate} />
+          <JurnalTerakhir />
+        </div>
       </div>
     </div>
   );
 }
+
