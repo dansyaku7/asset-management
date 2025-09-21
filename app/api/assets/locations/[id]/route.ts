@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+// --- PERUBAHAN: Gunakan instance prisma yang sama untuk performa lebih baik ---
+import prisma from "@/lib/prisma";
 
 // Fungsi untuk UPDATE (PUT) lokasi
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
@@ -38,3 +37,4 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
         return NextResponse.json({ message: "Gagal menghapus lokasi" }, { status: 500 });
     }
 }
+

@@ -1,12 +1,15 @@
-import React from "react";
-import { LocationWithFinancials } from "@/types";
+"use client";
+import type { Location } from "@prisma/client";
+// Mengambil tipe data dari halaman induknya
+import { type LocationWithFinancials } from "../page"; 
 import { formatRupiah } from "@/lib/utils";
 
 interface LocationTableProps {
   locations: LocationWithFinancials[];
   isLoading: boolean;
   onViewAssets: (id: number) => void;
-  onDeleteLocation: (id: number) => void;
+  onDeleteLocation: (location: LocationWithFinancials) => void; 
+  onEditLocation: (location: Location) => void;
 }
 
 export default function LocationTable({
@@ -14,6 +17,7 @@ export default function LocationTable({
   isLoading,
   onViewAssets,
   onDeleteLocation,
+  onEditLocation,
 }: LocationTableProps) {
   if (isLoading) {
     return (
@@ -55,7 +59,8 @@ export default function LocationTable({
                 </div>
               </td>
               <td className="px-6 py-4 text-center font-bold text-lg text-gray-700">
-                {location.assetCount}
+                {/* --- PERBAIKAN: Kembali menggunakan 'assetCount' atau fallback ke 0 --- */}
+                {location.assetCount || 0}
               </td>
               <td className="px-6 py-4 text-gray-600">
                 {formatRupiah(location.totalInitialValue)}
@@ -74,13 +79,13 @@ export default function LocationTable({
                   Lihat Aset
                 </button>
                 <button
-                  onClick={() => alert("Fitur Edit sedang dikembangkan!")}
+                  onClick={() => onEditLocation(location)}
                   className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
                 >
                   ✏️ Edit
                 </button>
                 <button
-                  onClick={() => onDeleteLocation(location.id)}
+                  onClick={() => onDeleteLocation(location)}
                   className="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                 >
                   🗑️ Hapus
@@ -93,3 +98,4 @@ export default function LocationTable({
     </div>
   );
 }
+
