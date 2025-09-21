@@ -1,37 +1,57 @@
-// File: app/dashboardAsset/components/PeminjamanDialog.tsx
-
 "use client";
-import React, { useMemo } from 'react';
-import { Asset, AssetStatus } from '@prisma/client';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Asset, AssetStatus, Location } from '@prisma/client';
+// Hapus import useAuth karena tidak lagi dibutuhkan
+// import { useAuth } from '@/components/AuthContext'; 
+
+type AssetWithLocation = Asset & { location: Location };
 
 type PeminjamanDialogProps = {
   isOpen: boolean;
   onClose: () => void;
   onFormSubmit: () => void;
-  assets: Asset[];
+  assets: AssetWithLocation[];
 };
 
 export default function PeminjamanDialog({ isOpen, onClose, onFormSubmit, assets }: PeminjamanDialogProps) {
-  if (!isOpen) return null;
+  // Hapus const { user } = useAuth();
+  
+  const [selectedAssetId, setSelectedAssetId] = useState('');
+  const [selectedAssetLocation, setSelectedAssetLocation] = useState('');
 
-  // Filter aset yang hanya bisa dipinjam (statusnya BAIK)
   const availableAssets = useMemo(() => {
     return assets.filter(asset => asset.status === AssetStatus.BAIK);
   }, [assets]);
 
+  useEffect(() => {
+    if (!isOpen) {
+        setSelectedAssetId('');
+        setSelectedAssetLocation('');
+    }
+  }, [isOpen]);
+
+  const handleAssetChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const assetId = event.target.value;
+    setSelectedAssetId(assetId);
+    const asset = assets.find(a => a.id === assetId);
+    if (asset) {
+        setSelectedAssetLocation(asset.location.name);
+    }
+  };
+
+  if (!isOpen) return null;
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    // Ubah cara pengambilan data agar lebih simpel
     const data = {
-      assetId: formData.get('assetId'),
-      picName: formData.get('picName'),
-      picContact: formData.get('picContact'),
-      reason: formData.get('reason'),
-      returnDate: formData.get('returnDate'),
+      ...Object.fromEntries(formData.entries()),
+      locationName: selectedAssetLocation,
     };
 
     try {
-      const response = await fetch('/api/assets/borrow', { // Kita akan buat API route ini
+      const response = await fetch('/api/assets/borrow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -56,7 +76,7 @@ export default function PeminjamanDialog({ isOpen, onClose, onFormSubmit, assets
           
           <div>
             <label htmlFor="assetId" className="block text-sm font-medium text-gray-700">Aset yang Dipinjam</label>
-            <select id="assetId" name="assetId" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+            <select id="assetId" name="assetId" required value={selectedAssetId} onChange={handleAssetChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
               <option value="" disabled>Pilih Aset yang Tersedia</option>
               {availableAssets.map(asset => (
                 <option key={asset.id} value={asset.id}>{asset.productName} ({asset.barcode})</option>
@@ -64,6 +84,25 @@ export default function PeminjamanDialog({ isOpen, onClose, onFormSubmit, assets
             </select>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Dari Klinik (Lokasi Aset)</label>
+                <input type="text" value={selectedAssetLocation || 'Pilih aset terlebih dahulu'} readOnly className="mt-1 block w-full rounded-md border-gray-300 bg-gray-100 shadow-sm" />
+            </div>
+             {/* --- PERUBAHAN UTAMA DI SINI --- */}
+             <div>
+                <label htmlFor="giverName" className="block text-sm font-medium text-gray-700">Pemberi Aset (PIC)</label>
+                <input 
+                    type="text" 
+                    id="giverName"
+                    name="giverName"
+                    required
+                    placeholder="Nama staf yang menyerahkan"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+            </div>
+          </div>
+          <hr/>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label htmlFor="picName" className="block text-sm font-medium text-gray-700">Nama Peminjam</label>
@@ -94,3 +133,4 @@ export default function PeminjamanDialog({ isOpen, onClose, onFormSubmit, assets
     </div>
   );
 }
+
