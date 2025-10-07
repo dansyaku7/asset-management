@@ -24,6 +24,12 @@ async function main() {
     create: { name: "ADMINISTRASI" },
   });
 
+  const assetManajemenRole = await prisma.role.upsert({
+    where: { name: "ASET_MANAJEMEN" },
+    update: {},
+    create: { name: "ASET_MANAJEMEN" },
+  });
+
   console.log("Roles created/verified.");
 
   const hashedPasswordSuperAdmin = await bcrypt.hash("superadminsimklinik", 10);

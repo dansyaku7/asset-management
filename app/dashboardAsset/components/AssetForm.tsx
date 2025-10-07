@@ -126,12 +126,27 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
     setIsSubmitting(true);
     setError(null);
     
+    // --- PERBAIKAN DIMULAI DARI SINI ---
+    
+    // 1. Ambil token dari localStorage (atau di mana pun kamu menyimpannya)
+    // Pastikan key 'authToken' ini sesuai dengan yang kamu gunakan di aplikasi
+    const token = localStorage.getItem('authToken');
+
+    if (!token) {
+        setError("Autentikasi gagal. Silakan login kembali.");
+        setIsSubmitting(false);
+        return;
+    }
+
+    // 2. Siapkan headers dengan token
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`, // Ini yang paling penting
+    };
+
     const method = assetToEdit ? 'PUT' : 'POST';
     const url = assetToEdit ? `/api/assets/${assetToEdit.id}` : '/api/assets';
     
-    // --- PERBAIKAN DI SINI ---
-    // Buat objek baru untuk memastikan format tanggal sudah benar (ISO string)
-    // sebelum dikirim ke backend.
     const dataToSend = {
       ...formData,
       purchaseDate: formData.purchaseDate ? new Date(formData.purchaseDate).toISOString() : '',
@@ -139,15 +154,22 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
     };
     
     try {
+      // 3. Gunakan headers yang sudah ada tokennya saat fetch
       const response = await fetch(url, {
-        method, headers: { 'Content-Type': 'application/json' },
-        // Kirim data yang sudah diformat dengan benar
+        method, 
+        headers: headers, // <-- GUNAKAN HEADERS YANG BARU
         body: JSON.stringify(dataToSend),
       });
+
       if (!response.ok) {
         const errorData = await response.json();
+        // Cek jika errornya karena token
+        if (response.status === 401) {
+             throw new Error(errorData.message || 'Sesi Anda telah berakhir, silakan login kembali.');
+        }
         throw new Error(errorData.message || 'Gagal menyimpan data aset');
       }
+
       onFormSubmit();
       onClose();
     } catch (err: any) {
@@ -290,8 +312,8 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
                 </div>
             </form>
         </div>
-        <div className="flex justify-end gap-4 p-6 border-t bg-gray-50 rounded-b-xl">
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+        <div className="flex justify-end items-center gap-4 p-6 border-t bg-gray-50 rounded-b-xl">
+            {error && <p className="text-red-500 text-sm flex-grow">{error}</p>}
             <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold">Batal</button>
             <button type="submit" form="asset-form" disabled={isSubmitting || isUploading} className="px-6 py-2 bg-[#01449D] text-white rounded-lg hover:bg-blue-800 disabled:bg-gray-400 font-semibold">
                 {isSubmitting ? 'Menyimpan...' : (isUploading ? 'Mengunggah...' : 'Simpan')}
@@ -301,4 +323,3 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
     </div>
   );
 }
-

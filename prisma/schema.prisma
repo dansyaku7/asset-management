@@ -19,6 +19,10 @@ model User {
   updatedAt DateTime @updatedAt
   role      Role     @relation(fields: [roleId], references: [id])
   roleId    Int
+
+  // Relasi balik ke log & maintenance
+  assetLogs    AssetLog[]
+  maintenances Maintenance[]
 }
 
 model Role {
@@ -50,16 +54,18 @@ model Asset {
   salvageValue      Decimal     @db.Decimal(12, 2)
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
-  
-  // --- TAMBAHAN FIELD BARU DI SINI ---
   imageUrl          String?
   productionYear    Int?
   distributor       String?
   calibrationDate   DateTime?
-  calibrationPeriod Int? // Masa berlaku kalibrasi dalam bulan
+  calibrationPeriod Int?
+  
+  // Kolom dari migrasi yang hilang
+  accessories       String?
+  position          String?
 
-  maintenances      Maintenance[]
-  logs              AssetLog[]
+  maintenances Maintenance[]
+  logs         AssetLog[]
 }
 
 enum AssetStatus {
@@ -67,7 +73,6 @@ enum AssetStatus {
   RUSAK
   PERBAIKAN
   DIPINJAM
-  // --- TAMBAHAN STATUS BARU ---
   KALIBRASI_EXPIRED
 }
 
@@ -83,6 +88,10 @@ model Maintenance {
   assetId        String
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
+
+  // Relasi ke User
+  recordedById   Int?
+  recordedBy     User?             @relation(fields: [recordedById], references: [id], onDelete: SetNull)
 }
 
 enum MaintenanceStatus {
@@ -99,4 +108,8 @@ model AssetLog {
   createdAt   DateTime @default(now())
   assetId     String
   asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  // Relasi ke User yang sudah diperbaiki
+  recordedById Int?
+  recordedBy   User?    @relation(fields: [recordedById], references: [id], onDelete: SetNull)
 }

@@ -2,8 +2,6 @@
 
 "use client";
 import React from 'react';
-// --- PERBAIKAN DI SINI ---
-// 'import type' diubah menjadi 'import' agar enum MaintenanceStatus bisa digunakan
 import { Asset, Maintenance, MaintenanceStatus } from '@prisma/client';
 
 type MaintenanceDialogProps = {
@@ -27,6 +25,7 @@ const formatDateForInput = (date: Date | string | null | undefined): string => {
 export default function MaintenanceDialog({ isOpen, onClose, onFormSubmit, maintenanceToEdit, assets }: MaintenanceDialogProps) {
   if (!isOpen) return null;
 
+  // --- FUNGSI HANDLE SUBMIT DIPERBAIKI ---
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -34,19 +33,36 @@ export default function MaintenanceDialog({ isOpen, onClose, onFormSubmit, maint
 
     const url = maintenanceToEdit ? `/api/assets/maintenance/${maintenanceToEdit.id}` : '/api/assets/maintenance';
     const method = maintenanceToEdit ? 'PUT' : 'POST';
+    
+    // 1. Ambil token dari localStorage
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        alert("Sesi Anda telah berakhir, silakan login kembali.");
+        return;
+    }
+
+    // 2. Siapkan headers dengan token otorisasi
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}` // Ini bagian pentingnya
+    };
 
     try {
+      // 3. Kirim request dengan headers yang sudah ada tokennya
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers, // Gunakan headers yang baru
         body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error('Gagal menyimpan data');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Gagal menyimpan data');
+      }
       onFormSubmit();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Gagal menyimpan data');
+      alert(error.message); // Tampilkan pesan error dari server
     }
   };
 
@@ -106,11 +122,11 @@ export default function MaintenanceDialog({ isOpen, onClose, onFormSubmit, maint
             </div>
             {maintenanceToEdit && (
                 <div>
-                  <label htmlFor="completionDate" className="block text-sm font-medium text-gray-700">Tgl. Sselesai</label>
+                  <label htmlFor="completionDate" className="block text-sm font-medium text-gray-700">Tgl. Selesai</label>
                   <input type="date" id="completionDate" name="completionDate" defaultValue={formatDateForInput(maintenanceToEdit?.completionDate)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
                 </div>
             )}
-             <div>
+              <div>
                 <label htmlFor="cost" className="block text-sm font-medium text-gray-700">Biaya (Rp)</label>
                 <input type="number" id="cost" name="cost" defaultValue={maintenanceToEdit?.cost || ''} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
             </div>

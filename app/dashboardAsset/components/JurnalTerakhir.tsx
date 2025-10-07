@@ -21,10 +21,7 @@ export default function JurnalTerakhir() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        // --- PERUBAHAN DI BARIS INI ---
         const response = await fetch('/api/assets/logs'); 
-        // ------------------------------
-        
         if (!response.ok) {
           throw new Error('Gagal mengambil data log');
         }
@@ -61,7 +58,16 @@ export default function JurnalTerakhir() {
                 {log.asset.productName}
               </p>
               <p className="text-sm text-gray-500">{formatDate(log.createdAt)}</p>
-              <p className="text-sm text-gray-800">{log.description}</p>
+              
+              <p className="text-sm text-gray-800">
+                {log.description}
+                {/* Cek apakah ada data user, jika ada, tampilkan namanya */}
+                {log.recordedBy && (
+                  // --- PERBAIKAN DI SINI ---
+                  // Menggunakan 'fullName' sesuai dengan data dari API
+                  <span className="text-gray-500"> oleh {log.recordedBy.fullName}</span>
+                )}
+              </p>
             </div>
           ))
         )}
@@ -69,3 +75,4 @@ export default function JurnalTerakhir() {
     </div>
   );
 }
+
