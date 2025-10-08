@@ -179,7 +179,7 @@ export default function LoginPage() {
                     Remember Me{" "}
                   </label>
                 </div>
-                <div className="text-sm">
+                {/* <div className="text-sm">
                   <a
                     href="#"
                     className="font-medium hover:underline"
@@ -188,7 +188,8 @@ export default function LoginPage() {
                     {" "}
                     Forgot Your Password?{" "}
                   </a>
-                </div>
+                </div> 
+                */}
               </div>
 
               <div>
@@ -202,7 +203,7 @@ export default function LoginPage() {
                 </button>
               </div>
             </form>
-            <p className="mt-8 text-center text-sm text-gray-500">
+            {/* <p className="mt-8 text-center text-sm text-gray-500">
               Don't Have An Account?{" "}
               <a
                 href="#"
@@ -212,7 +213,8 @@ export default function LoginPage() {
                 {" "}
                 Register Now.{" "}
               </a>
-            </p>
+            </p> 
+            */}
           </div>
 
           <div className="w-full text-center lg:text-left">
@@ -284,4 +286,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
