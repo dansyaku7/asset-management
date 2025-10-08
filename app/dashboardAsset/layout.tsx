@@ -1,13 +1,7 @@
-// File: app/dashboardAsset/layout.tsx
-
 "use client";
 
-// --- IMPORT BARU ---
-import AuthGuard from './components/AuthGuard'; // <-- Pastikan path ini benar
-
-// --- Import yang sudah ada ---
+import AuthGuard from './components/AuthGuard';
 import { useAuth } from "@/components/AuthContext";
-import { useRouter } from "next/navigation";
 import { useState, createContext, useContext } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,7 +15,6 @@ const LogoutIcon = (props: React.SVGProps<SVGSVGElement>) => ( <svg xmlns="http:
 const MenuIcon = (props: React.SVGProps<SVGSVGElement>) => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg> );
 const ChevronDownIcon = (props: React.SVGProps<SVGSVGElement>) => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m6 9 6 6 6-6"/></svg> );
 
-
 const SidebarContext = createContext({ 
     isSidebarOpen: false, 
     toggleSidebar: () => {},
@@ -30,44 +23,38 @@ const SidebarContext = createContext({
 export const useSidebar = () => useContext(SidebarContext);
 
 export default function DashboardAssetLayout({ children }: { children: React.ReactNode }) {
-    // Kita masih butuh useAuth untuk data user di header dan fungsi logout
     const { user, logout } = useAuth();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isMasterDataOpen, setMasterDataOpen] = useState(false);
     
-    // Pengecekan sesi & loading screen sekarang ditangani oleh AuthGuard
-    // Jadi kita hapus useEffect dan `if (isLoading)` dari sini.
-
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
     const closeSidebar = () => setSidebarOpen(false);
 
     return (
-        // Semua konten dibungkus oleh AuthGuard
         <AuthGuard>
-            {/* Setelah AuthGuard selesai verifikasi, dia akan render children-nya.
-              Kita tambahkan pengecekan `user` di sini untuk mencegah error render
-              sebelum AuthContext siap menampilkan nama user di header.
-            */}
             {user && (
                 <SidebarContext.Provider value={{ isSidebarOpen, toggleSidebar, closeSidebar }}>
                     <div className="flex h-screen bg-gray-100 font-sans">
                         
                         <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform lg:relative lg:translate-x-0`}>
-                            <div className="flex items-center justify-center h-20 border-b px-4">
+                            <div className="flex items-center justify-center h-20 border-b border-gray-200 px-4">
                                 <Image src="/images/logo-klinik.png" alt="Logo Klinik" width={120} height={40} priority />
                             </div>
                             <nav className="flex-1 px-4 py-6 space-y-2">
-                                <NavItem icon={<HomeIcon />} href="/dashboardAsset">Dashboard</NavItem>
-                                <NavItem icon={<AssetIcon />} href="/dashboardAsset/list">Asset List</NavItem>
-                                <NavItem icon={<MaintenanceIcon />} href="/dashboardAsset/maintenance">Maintenance</NavItem>
+                                {/* --- PERUBAHAN WARNA IKON --- */}
+                                <NavItem icon={<HomeIcon className="text-[#01449D]"/>} href="/dashboardAsset">Dashboard</NavItem>
+                                <NavItem icon={<AssetIcon className="text-[#01449D]"/>} href="/dashboardAsset/list">Asset List</NavItem>
+                                <NavItem icon={<MaintenanceIcon className="text-[#01449D]"/>} href="/dashboardAsset/maintenance">Maintenance</NavItem>
                                 
                                 <div>
                                     <button 
                                         onClick={() => setMasterDataOpen(!isMasterDataOpen)}
-                                        className="w-full flex items-center justify-between px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                        /* --- PERUBAHAN WARNA TEKS & HOVER --- */
+                                        className="w-full flex items-center justify-between px-4 py-2 text-gray-700 font-medium hover:bg-gray-100 hover:text-[#01449D] rounded-lg transition-colors"
                                     >
                                         <div className="flex items-center">
-                                            <MasterDataIcon className="w-5 h-5 mr-3" />
+                                            {/* --- PERUBAHAN WARNA IKON --- */}
+                                            <MasterDataIcon className="w-5 h-5 mr-3 text-[#01449D]" />
                                             <span>Master Data</span>
                                         </div>
                                         <ChevronDownIcon className={`w-5 h-5 transition-transform ${isMasterDataOpen ? 'rotate-180' : ''}`} />
@@ -81,11 +68,12 @@ export default function DashboardAssetLayout({ children }: { children: React.Rea
                                         </div>
                                     )}
                                 </div>
-
                             </nav>
-                            <div className="px-4 py-6 border-t">
-                                <NavItem icon={<HomeIcon />} href="/dashboardMain">Back to Main</NavItem>
-                                <button onClick={logout} className="w-full flex items-center px-4 py-2 mt-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+                            <div className="px-4 py-6 border-t border-gray-200">
+                                {/* --- PERUBAHAN WARNA IKON --- */}
+                                <NavItem icon={<HomeIcon className="text-gray-700" />} href="/dashboardMain">Back to Main</NavItem>
+                                {/* --- PERUBAHAN WARNA TEKS & HOVER --- */}
+                                <button onClick={logout} className="w-full flex items-center px-4 py-2 mt-2 text-gray-700 hover:bg-gray-100 hover:text-[#01449D] rounded-lg transition-colors">
                                     <LogoutIcon className="w-5 h-5 mr-3"/><span>Log Out</span>
                                 </button>
                             </div>
@@ -99,7 +87,7 @@ export default function DashboardAssetLayout({ children }: { children: React.Rea
                                 </div>
                                 <div className="flex items-center space-x-4">
                                     <div className="flex items-center space-x-2 cursor-pointer">
-                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#01449D] font-bold">{user.fullName.charAt(0)}</div>
+                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#01449D] font-bold">{user.fullName.charAt(0).toUpperCase()}</div>
                                         <span>{user.fullName}</span> 
                                     </div>
                                 </div>
@@ -113,13 +101,14 @@ export default function DashboardAssetLayout({ children }: { children: React.Rea
     );
 }
 
+/* --- PERUBAHAN WARNA TEKS & HOVER DI KOMPONEN --- */
 const NavItem = ({ icon, href, children }: { icon: React.ReactNode, href: string, children: React.ReactNode }) => {
     const { closeSidebar } = useSidebar();
     return (
         <Link 
             href={href} 
             onClick={closeSidebar}
-            className="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="flex items-center px-4 py-2 text-gray-700 font-medium hover:bg-gray-100 hover:text-[#01449D] rounded-lg transition-colors"
         >
             {icon && <span className="mr-3">{icon}</span>}
             {children}
@@ -133,10 +122,9 @@ const SubNavItem = ({ href, children }: { href: string, children: React.ReactNod
         <Link
             href={href}
             onClick={closeSidebar}
-            className="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-[#01449D] rounded-lg transition-colors"
         >
             {children}
         </Link>
     );
 }
-
