@@ -79,13 +79,22 @@ export async function GET() {
       const currentValue = price - accumulatedDepreciation;
       const { maintenances, ...restOfAsset } = asset;
 
+      // --- INI BAGIAN YANG DIUBAH ---
+      const qrCodeValue = [
+        `Nama Produk: ${asset.productName}`,
+        `Lokasi: ${asset.location.name}`,
+        `Posisi: ${asset.position || '--'}`,
+        `Kelengkapan: ${asset.accessories || '--'}`
+      ].join('\n');
+      // --- AKHIR PERUBAHAN ---
+
       return {
         ...restOfAsset,
         price,
         salvageValue,
         currentValue,
         accumulatedDepreciation,
-        qrCodeValue: `${asset.productName} - ${asset.location.name}`,
+        qrCodeValue, // Menggunakan variabel yang baru dibuat
         status: finalStatus,
         notification,
       };
@@ -107,19 +116,17 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-    // 1. Verifikasi apakah user sudah login
+    // ... (Fungsi POST tidak ada perubahan)
     const decodedToken = await verifyAuth(req);
     if (!decodedToken || !decodedToken.userId) {
-        // 401 Unauthorized lebih cocok untuk kasus belum login
         return NextResponse.json({ message: "Anda harus login terlebih dahulu" }, { status: 401 });
     }
 
     try {
-        // 2. Ambil data user beserta rolenya dari database
         const user = await prisma.user.findUnique({
             where: { id: decodedToken.userId },
             include: {
-                role: true, // <-- Ini penting untuk dapat nama rolenya
+                role: true,
             },
         });
 
@@ -127,21 +134,18 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ message: "User tidak ditemukan" }, { status: 404 });
         }
 
-        // 3. Definisikan role apa saja yang boleh melakukan aksi ini
         const allowedRoles = ["SUPER_ADMIN", "ASET_MANAJEMEN"];
-
-        // 4. Cek apakah role user saat ini termasuk dalam daftar yang diizinkan
         if (!allowedRoles.includes(user.role.name)) {
-            // 403 Forbidden artinya "saya tahu kamu siapa, tapi kamu tidak boleh masuk"
             return NextResponse.json({ message: "Akses ditolak: Anda tidak memiliki izin untuk menambah aset." }, { status: 403 });
         }
 
-        // --- Jika lolos semua pengecekan di atas, baru lanjutkan proses membuat aset ---
         const body = await req.json();
         const {
             productName, purchaseDate, locationId, assetType, price,
             usefulLife, salvageValue, picName, picContact, status,
             imageUrl, productionYear, distributor, calibrationDate, calibrationPeriod,
+            accessories,
+            position,
         } = body;
 
         if (!productName || !locationId) {
@@ -162,6 +166,8 @@ export async function POST(req: NextRequest) {
                     distributor: distributor || null,
                     calibrationDate: calibrationDate ? new Date(calibrationDate) : null,
                     calibrationPeriod: calibrationPeriod ? parseInt(calibrationPeriod) : null,
+                    accessories: accessories || null,
+                    position: position || null,
                 },
             });
 

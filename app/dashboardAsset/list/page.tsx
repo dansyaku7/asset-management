@@ -6,12 +6,14 @@ import AssetForm from '../components/AssetForm';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 import { QRCodeSVG } from 'qrcode.react';
 
-// Tipe data diupdate untuk menyertakan notifikasi
+// Tipe data diupdate untuk menyertakan notifikasi dan data baru
 type AssetWithDetails = Omit<Asset, 'price' | 'salvageValue'> & { 
   location: Location; 
   qrCodeValue: string;
   price: number;
   salvageValue: number;
+  accessories?: string | null;
+  position?: string | null;
   notification: { type: 'warning' | 'error', message: string } | null;
 };
 type ApiResponse = { 
@@ -112,7 +114,6 @@ function AssetListContent() {
             setAllAssets(assetsData.assets);
             setLocations(locationsData);
             
-            // Re-apply filter after fetching new data
             const currentFilter = locationFromUrl || selectedLocation;
             if (currentFilter === '') {
                 setFilteredAssets(assetsData.assets);
@@ -143,10 +144,76 @@ function AssetListContent() {
         }
     }, [selectedLocation, allAssets, router]);
 
+    // --- FUNGSI INI YANG DIUBAH ---
     const handlePrintBarcode = (asset: AssetWithDetails) => {
         const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(asset.qrCodeValue)}`;
+        
+        // Menyiapkan baris untuk posisi, hanya jika ada isinya
+        const positionLine = asset.position ? `<p>${asset.position}</p>` : '';
+
         const printContent = `
-            <html><head><title>Print QR Code Aset</title><style>@page { size: 7cm 4cm; margin: 0; } body { margin: 0; padding: 0; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 4cm; overflow: hidden; } .print-container { width: 6.8cm; height: 3.8cm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0.1cm; box-sizing: border-box; } img { max-width: 2.5cm; max-height: 2.5cm; height: auto; margin-bottom: 0.2cm; } h3 { font-size: 12pt; margin: 0; line-height: 1.1; font-weight: bold; word-break: break-word; } p { font-size: 9pt; margin: 0; line-height: 1.1; word-break: break-word; } </style></head><body><div class="print-container"><img id="qrCodeImage" src="${qrCodeImageUrl}" alt="QR Code" onload="this.isLoaded=true;" /><h3>${asset.productName}</h3><p>Lokasi: ${asset.location.name}</p></div><script> const img = document.getElementById('qrCodeImage'); function doPrint() { window.print(); window.close(); } if (img && !img.isLoaded) { img.onload = doPrint; } else { doPrint(); } </script></body></html>
+            <html>
+                <head>
+                    <title>Print QR Code Aset</title>
+                    <style>
+                        @page { size: 7cm 4cm; margin: 0; } 
+                        body { 
+                            margin: 0; 
+                            padding: 0; 
+                            font-family: sans-serif; 
+                            display: flex; 
+                            justify-content: center; 
+                            align-items: center; 
+                            min-height: 4cm; 
+                            overflow: hidden; 
+                        } 
+                        .print-container { 
+                            width: 6.8cm; 
+                            height: 3.8cm; 
+                            display: flex; 
+                            flex-direction: column; 
+                            justify-content: center; 
+                            align-items: center; 
+                            text-align: center; 
+                            padding: 0.1cm; 
+                            box-sizing: border-box; 
+                        } 
+                        img { 
+                            max-width: 2.5cm; 
+                            max-height: 2.5cm; 
+                            height: auto; 
+                            margin-bottom: 0.02cm; 
+                        } 
+                        h3 { 
+                            font-size: 9pt; 
+                            margin: 0; 
+                            line-height: 1.1; 
+                            font-weight: bold; 
+                            word-break: break-word; 
+                        } 
+                        p { 
+                            font-size: 6pt; 
+                            margin: 0.01cm 0; /* Memberi sedikit jarak antar baris */
+                            line-height: 1.1; 
+                            word-break: break-word; 
+                        } 
+                    </style>
+                </head>
+                <body>
+                    <div class="print-container">
+                        <img id="qrCodeImage" src="${qrCodeImageUrl}" alt="QR Code" onload="this.isLoaded=true;" />
+                        <h3>${asset.productName}</h3>
+                        <p>${asset.location.name}</p>
+                        ${positionLine}
+                    </div>
+                    <script> 
+                        const img = document.getElementById('qrCodeImage'); 
+                        function doPrint() { window.print(); window.close(); } 
+                        if (img && !img.isLoaded) { img.onload = doPrint; } 
+                        else { doPrint(); } 
+                    </script>
+                </body>
+            </html>
         `;
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -240,17 +307,17 @@ function AssetListContent() {
                     </div>
                 </div>
 
-                {/* TAMPILAN TABEL UNTUK DESKTOP (MD KE ATAS) */}
                 <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm text-left text-gray-500">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                             <tr>
                                 <th scope="col" className="px-6 py-3">QR Code</th>
                                 <th scope="col" className="px-6 py-3">Nama Produk</th>
-                                <th scope="col" className="px-6 py-3">Harga Awal</th>
+                                <th scope="col" className="px-6 py-3">Harga Awal & Penyusutan/Bln</th>
                                 <th scope="col" className="px-6 py-3">Nilai Buku</th>
-                                <th scope="col" className="px-6 py-3">Penyusutan/Bln</th>
                                 <th scope="col" className="px-6 py-3">Lokasi</th>
+                                <th scope="col" className="px-6 py-3">Kelengkapan Asset</th>
+                                <th scope="col" className="px-6 py-3">Posisi Asset</th>
                                 <th scope="col" className="px-6 py-3">Status</th>
                                 <th scope="col" className="px-6 py-3">PIC</th>
                                 <th scope="col" className="px-6 py-3 min-w-[280px]">Aksi</th>
@@ -264,10 +331,33 @@ function AssetListContent() {
                                         <tr key={asset.id} className="bg-white border-b hover:bg-gray-50">
                                             <td className="px-6 py-4"><div className="p-1 border inline-block bg-white"><QRCodeSVG value={asset.qrCodeValue} size={64} /></div></td>
                                             <td className="px-6 py-4 font-medium text-gray-900">{asset.productName}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{formatCurrency(asset.price)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div>
+                                                    <span className="text-xs text-gray-500">Harga Awal:</span>
+                                                    <p>{formatCurrency(asset.price)}</p>
+                                                </div>
+                                                <div className="mt-1">
+                                                    <span className="text-xs text-gray-500">Penyusutan/Bln:</span>
+                                                    <p>{formatCurrency(monthlyDepreciation)}</p>
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap font-semibold">{formatCurrency(bookValue)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap">{formatCurrency(monthlyDepreciation)}</td>
                                             <td className="px-6 py-4">{asset.location.name}</td>
+                                            <td className="px-6 py-4 max-w-xs">
+                                                {asset.accessories ? (
+                                                    <ul className="list-disc pl-4">
+                                                        {asset.accessories.split(',')
+                                                            .map(item => item.trim())
+                                                            .filter(Boolean)
+                                                            .map((item, index) => (
+                                                                <li key={index}>{item}</li>
+                                                        ))}
+                                                    </ul>
+                                                ) : (
+                                                    '--'
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">{asset.position || '--'}</td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
                                                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusClass(asset.status)}`}>
@@ -292,13 +382,12 @@ function AssetListContent() {
                                     );
                                 })
                             ) : (
-                                <tr><td colSpan={9} className="text-center py-10 text-gray-500">Tidak ada aset yang ditemukan.</td></tr>
+                                <tr><td colSpan={10} className="text-center py-10 text-gray-500">Tidak ada aset yang ditemukan.</td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
 
-                {/* TAMPILAN KARTU UNTUK MOBILE (DI BAWAH MD) */}
                 <div className="block md:hidden">
                     {filteredAssets.length > 0 ? (
                         <div className="space-y-4">
@@ -322,6 +411,9 @@ function AssetListContent() {
                                                 </div>
                                             </div>
                                             <div className="flex justify-between"><span className="font-semibold text-gray-600">PIC</span> <span className="text-gray-800">{asset.picName || '--'}</span></div>
+                                            <div className="flex justify-between"><span className="font-semibold text-gray-600">Posisi</span> <span className="text-gray-800 text-right">{asset.position || '--'}</span></div>
+                                            <div className="flex justify-between"><span className="font-semibold text-gray-600">Kelengkapan</span> <span className="text-gray-800 text-right">{asset.accessories || '--'}</span></div>
+                                            <hr className="my-1"/>
                                             <div className="flex justify-between"><span className="font-semibold text-gray-600">Harga Awal</span> <span className="text-gray-800">{formatCurrency(asset.price)}</span></div>
                                             <div className="flex justify-between"><span className="font-semibold text-gray-600">Nilai Buku</span> <span className="text-gray-800 font-bold">{formatCurrency(bookValue)}</span></div>
                                             <div className="flex justify-between"><span className="font-semibold text-gray-600">Penyusutan/Bln</span> <span className="text-gray-800">{formatCurrency(monthlyDepreciation)}</span></div>
@@ -354,4 +446,3 @@ export default function AssetListPageWrapper() {
         </Suspense>
     );
 }
-

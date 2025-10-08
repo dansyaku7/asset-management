@@ -1,3 +1,5 @@
+// app/dashboardAsset/components/AssetForm.tsx
+
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { Location, Asset, AssetStatus } from '@prisma/client';
@@ -8,31 +10,37 @@ const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" heig
 const CameraIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>;
 const ComputerIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>;
 
-
 interface AssetFormProps {
   isOpen: boolean;
   onClose: () => void;
   onFormSubmit: () => void;
-  assetToEdit?: (Omit<Asset, 'price' | 'salvageValue'> & { 
-      location: Location; price: number; salvageValue: number;
+  assetToEdit?: (Omit<Asset, 'price' | 'salvageValue'> & {
+    location: Location; price: number; salvageValue: number;
   }) | null;
 }
 
+// --- BARU: Tambahkan accessories dan position di sini ---
 type AssetFormData = {
     productName: string; purchaseDate: string; locationId: string;
     assetType: string; price: string; usefulLife: string;
     salvageValue: string; picName: string; picContact: string;
     status: AssetStatus; imageUrl: string; productionYear: string;
     distributor: string; calibrationDate: string; calibrationPeriod: string;
+    accessories: string; // <-- BARU
+    position: string;    // <-- BARU
 };
 
 export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }: AssetFormProps) {
+  // --- BARU: Tambahkan accessories dan position di state awal ---
   const [formData, setFormData] = useState<AssetFormData>({
     productName: '', purchaseDate: '', locationId: '', assetType: '',
-    price: '', usefulLife: '', salvageValue: '', picName: '', 
+    price: '', usefulLife: '', salvageValue: '', picName: '',
     picContact: '', status: 'BAIK', imageUrl: '', productionYear: '',
     distributor: '', calibrationDate: '', calibrationPeriod: '',
+    accessories: '', // <-- BARU
+    position: '',    // <-- BARU
   });
+
   const [locations, setLocations] = useState<Location[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,11 +51,14 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
+    // --- BARU: Tambahkan accessories dan position di reset form ---
     setFormData({
         productName: '', purchaseDate: '', locationId: '', assetType: '',
-        price: '', usefulLife: '', salvageValue: '', picName: '', 
+        price: '', usefulLife: '', salvageValue: '', picName: '',
         picContact: '', status: 'BAIK', imageUrl: '', productionYear: '',
         distributor: '', calibrationDate: '', calibrationPeriod: '',
+        accessories: '', // <-- BARU
+        position: '',    // <-- BARU
     });
     setImagePreview(null);
   }
@@ -64,6 +75,7 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
     if (isOpen) {
         fetchLocations();
         if (assetToEdit) {
+            // --- BARU: Tambahkan accessories dan position saat edit data ---
             setFormData({
                 productName: assetToEdit.productName,
                 purchaseDate: new Date(assetToEdit.purchaseDate).toISOString().split('T')[0],
@@ -80,6 +92,8 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
                 distributor: assetToEdit.distributor || '',
                 calibrationDate: assetToEdit.calibrationDate ? new Date(assetToEdit.calibrationDate).toISOString().split('T')[0] : '',
                 calibrationPeriod: assetToEdit.calibrationPeriod?.toString() || '',
+                accessories: assetToEdit.accessories || '', // <-- BARU
+                position: assetToEdit.position || '',       // <-- BARU
             });
             setImagePreview(assetToEdit.imageUrl || null);
         } else {
@@ -126,10 +140,6 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
     setIsSubmitting(true);
     setError(null);
     
-    // --- PERBAIKAN DIMULAI DARI SINI ---
-    
-    // 1. Ambil token dari localStorage (atau di mana pun kamu menyimpannya)
-    // Pastikan key 'authToken' ini sesuai dengan yang kamu gunakan di aplikasi
     const token = localStorage.getItem('authToken');
 
     if (!token) {
@@ -138,15 +148,15 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
         return;
     }
 
-    // 2. Siapkan headers dengan token
     const headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`, // Ini yang paling penting
+        'Authorization': `Bearer ${token}`,
     };
 
     const method = assetToEdit ? 'PUT' : 'POST';
     const url = assetToEdit ? `/api/assets/${assetToEdit.id}` : '/api/assets';
     
+    // Data baru (accessories & position) akan otomatis ikut terkirim dari formData
     const dataToSend = {
       ...formData,
       purchaseDate: formData.purchaseDate ? new Date(formData.purchaseDate).toISOString() : '',
@@ -154,16 +164,14 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
     };
     
     try {
-      // 3. Gunakan headers yang sudah ada tokennya saat fetch
       const response = await fetch(url, {
         method, 
-        headers: headers, // <-- GUNAKAN HEADERS YANG BARU
+        headers: headers,
         body: JSON.stringify(dataToSend),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        // Cek jika errornya karena token
         if (response.status === 401) {
              throw new Error(errorData.message || 'Sesi Anda telah berakhir, silakan login kembali.');
         }
@@ -257,6 +265,21 @@ export default function AssetForm({ isOpen, onClose, onFormSubmit, assetToEdit }
                             </select>
                         </div>
                     </div>
+
+                    {/* --- BARU: Kolom untuk Posisi dan Aksesoris --- */}
+                    <hr className="my-4"/>
+                    <h3 className="text-lg font-bold text-gray-600 -mt-1">Detail Tambahan</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-1 gap-5">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Posisi / Ruangan</label>
+                            <input type="text" name="position" value={formData.position} onChange={handleChange} placeholder="e.g., Lab Komputer 1, Ruang Server" className="w-full rounded-md border-gray-300 shadow-sm" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">Aksesoris / Kelengkapan</label>
+                            <textarea name="accessories" value={formData.accessories} onChange={handleChange} rows={3} placeholder="e.g., Kabel Power, Mouse, Keyboard, Tas" className="w-full rounded-md border-gray-300 shadow-sm" />
+                        </div>
+                    </div>
+                    {/* --- AKHIR BAGIAN BARU --- */}
 
                     <hr className="my-4"/>
                     <h3 className="text-lg font-bold text-gray-600 -mt-1">Data Kalibrasi (Opsional)</h3>

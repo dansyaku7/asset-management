@@ -1,21 +1,19 @@
 // File: app/api/assets/[id]/route.ts
 
-import { NextResponse, NextRequest } from "next/server"; // <-- IMPORT NextRequest
+import { NextResponse, NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { AssetStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { verifyAuth } from "@/lib/auth-helper"; // <-- IMPORT BARU
+import { verifyAuth } from "@/lib/auth-helper";
 
 export async function PUT(
-  req: NextRequest, // <-- UBAH KE NextRequest
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // --- PENAMBAHAN LOGIKA OTORISASI ---
   const decodedToken = await verifyAuth(req);
   if (!decodedToken || !decodedToken.userId) {
     return NextResponse.json({ message: "Akses ditolak" }, { status: 403 });
   }
-  // --- AKHIR PENAMBAHAN ---
 
   try {
     const { id } = params;
@@ -29,7 +27,6 @@ export async function PUT(
       return NextResponse.json({ message: "Aset tidak ditemukan" }, { status: 404 });
     }
     
-    // Konversi string kosong atau nilai undefined menjadi null atau tipe data yang benar
     const dataToUpdate = {
         ...body,
         price: body.price ? new Decimal(body.price) : undefined,
@@ -43,6 +40,8 @@ export async function PUT(
         distributor: body.distributor || null,
         picName: body.picName || null,
         picContact: body.picContact || null,
+        accessories: body.accessories || null,
+        position: body.position || null,
     };
 
     const updatedAsset = await prisma.$transaction(async (tx) => {
@@ -51,18 +50,15 @@ export async function PUT(
         data: dataToUpdate,
       });
 
-      // --- PENAMBAHAN LOG JURNAL UNTUK EDIT ASET ---
       await tx.assetLog.create({
         data: {
           assetId: asset.id,
-          userId: decodedToken.userId, // <-- Ambil dari token
+          recordedById: decodedToken.userId,
           activity: "Update Aset",
           description: `Detail aset "${asset.productName}" telah diperbarui.`,
         },
       });
-      // --- AKHIR PENAMBAHAN JURNAL ---
-
-      // Logika lama untuk perubahan status bisa tetap di sini jika dibutuhkan
+      
       const newStatus = body.status;
       if (newStatus && currentAsset.status !== newStatus) {
         let logDescription = "";
@@ -73,10 +69,10 @@ export async function PUT(
         if (logDescription) {
           await tx.assetLog.create({
             data: { 
-                assetId: asset.id, 
-                userId: decodedToken.userId, // <-- Jangan lupa tambahkan userId juga di sini
-                activity: `Perubahan Status`, 
-                description: logDescription 
+              assetId: asset.id, 
+              recordedById: decodedToken.userId,
+              activity: `Perubahan Status`, 
+              description: logDescription 
             },
           });
         }
