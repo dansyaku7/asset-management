@@ -1,4 +1,5 @@
 // File: prisma/schema.prisma
+// (REVISI FINAL - Berdasarkan Skema Asli + Penambahan Modul RBAC & Perbaikan)
 
 generator client {
   provider = "prisma-client-js"
@@ -10,62 +11,390 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
+// ==========================================
+// MODUL PENGGUNA, AKSES & RBAC (REVISI)
+// ==========================================
 model User {
-  id        Int      @id @default(autoincrement())
-  fullName  String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  role      Role     @relation(fields: [roleId], references: [id])
-  roleId    Int
-
-  // Relasi balik ke log & maintenance
+  id           Int           @id @default(autoincrement())
+  fullName     String
+  email        String        @unique
+  password     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  role         Role          @relation(fields: [roleId], references: [id])
+  roleId       Int
+  employee     Employee?
   assetLogs    AssetLog[]
   maintenances Maintenance[]
 }
 
 model Role {
-  id    Int    @id @default(autoincrement())
-  name  String @unique
-  users User[]
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  users       User[]
+  // --- TAMBAHAN BARU ---
+  permissions RolePermission[]
 }
 
-model Location {
-  id      Int     @id @default(autoincrement())
-  name    String  @unique
-  address String?
-  assets  Asset[]
+// --- MODEL BARU ---
+model Permission {
+  id          Int      @id @default(autoincrement())
+  action      String   @unique // e.g., "manage_users", "view_dashboard", "create_rme"
+  description String?
+  roles       RolePermission[]
 }
 
+// --- MODEL PENGHUBUNG M2M BARU ---
+model RolePermission {
+  role         Role       @relation(fields: [roleId], references: [id])
+  roleId       Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId Int
+
+  @@id([roleId, permissionId])
+}
+
+
+model Employee {
+  id                 Int               @id @default(autoincrement())
+  user               User              @relation(fields: [userId], references: [id])
+  userId             Int               @unique
+  position           String
+  hireDate           DateTime
+  isActive           Boolean           @default(true)
+  branch             Branch            @relation(fields: [branchId], references: [id])
+  branchId           Int
+  medicalRecords     MedicalRecord[]
+  appointments       Appointment[]
+  salaries           EmployeeSalary[]
+  payrollItems       PayrollItem[]
+  validatedLabOrders LabOrder[]        @relation("Validator")
+}
+
+// ==========================================
+// MODUL MANAJEMEN CABANG (Core)
+// ==========================================
+model Branch {
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  address          String?
+  phone            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  assets           Asset[]
+  employees        Employee[]
+  patients         Patient[]
+  drugStocks       DrugStock[]
+  invoices         Invoice[]
+  appointments     Appointment[]
+  journalEntries   JournalEntry[]
+  purchaseInvoices PurchaseInvoice[]
+}
+
+// ==========================================
+// MODUL SDM & PENGGAJIAN
+// ==========================================
+enum PayrollComponentType {
+  EARNING
+  DEDUCTION
+}
+
+model PayrollComponent {
+  id               Int                  @id @default(autoincrement())
+  name             String               @unique
+  type             PayrollComponentType
+  employeeSalaries EmployeeSalary[]
+}
+
+model EmployeeSalary {
+  id                 Int              @id @default(autoincrement())
+  employee           Employee         @relation(fields: [employeeId], references: [id])
+  employeeId         Int
+  payrollComponent   PayrollComponent @relation(fields: [payrollComponentId], references: [id])
+  payrollComponentId Int
+  amount             Decimal          @db.Decimal(12, 2)
+
+  @@unique([employeeId, payrollComponentId])
+}
+
+model Payroll {
+  id             Int           @id @default(autoincrement())
+  periodMonth    Int
+  periodYear     Int
+  executionDate  DateTime      @default(now())
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  journalEntryId Int?          @unique
+  status         PayrollStatus @default(UNPAID)
+  items          PayrollItem[]
+
+  @@unique([periodMonth, periodYear])
+}
+
+enum PayrollStatus {
+  UNPAID
+  PAID
+}
+
+model PayrollItem {
+  id              Int      @id @default(autoincrement())
+  payroll         Payroll  @relation(fields: [payrollId], references: [id])
+  payrollId       Int
+  employee        Employee @relation(fields: [employeeId], references: [id])
+  employeeId      Int
+  totalEarnings   Decimal  @db.Decimal(12, 2)
+  totalDeductions Decimal  @db.Decimal(12, 2)
+  netPay          Decimal  @db.Decimal(12, 2)
+
+  @@index([payrollId])
+  @@index([employeeId])
+}
+
+// ==========================================
+// MODUL PASIEN & PENDAFTARAN
+// ==========================================
+model Patient {
+  id                 Int             @id @default(autoincrement())
+  medicalRecordNo    String          @unique
+  fullName           String
+  dateOfBirth        DateTime
+  gender             Gender
+  address            String?
+  phone              String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  registeredAtBranch Branch          @relation(fields: [branchId], references: [id])
+  branchId           Int
+  appointments       Appointment[]
+  medicalRecords     MedicalRecord[]
+  invoices           Invoice[]
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model Appointment {
+  id              Int               @id @default(autoincrement())
+  patient         Patient           @relation(fields: [patientId], references: [id])
+  patientId       Int
+  doctor          Employee          @relation(fields: [doctorId], references: [id])
+  doctorId        Int
+  branch          Branch            @relation(fields: [branchId], references: [id])
+  branchId        Int
+  appointmentDate DateTime
+  status          AppointmentStatus @default(SCHEDULED)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  invoice         Invoice?
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ==========================================
+// MODUL PELAYANAN MEDIS (RME)
+// ==========================================
+model MedicalRecord {
+  id            Int            @id @default(autoincrement())
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  patientId     Int
+  doctor        Employee       @relation(fields: [doctorId], references: [id])
+  doctorId      Int
+  visitDate     DateTime       @default(now())
+  anamnesis     String?        @db.Text
+  physicalExam  String?        @db.Text
+  diagnosis     String?        @db.Text
+  actions       String?        @db.Text
+  prescriptions Prescription[]
+  labOrders     LabOrder[]
+}
+
+model Service {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  price        Decimal       @db.Decimal(12, 2)
+  invoiceItems InvoiceItem[]
+}
+
+// ==========================================
+// MODUL LABORATORIUM & RADIOLOGI (REVISI FOKUS)
+// ==========================================
+enum LabServiceCategory {
+  LABORATORY
+  RADIOLOGY
+}
+
+model LabParameter {
+  id           Int                   @id @default(autoincrement())
+  name         String                @unique
+  unit         String?
+  normalRanges LabParameterRange[]
+  services     LabServiceParameter[]
+  results      LabResult[]
+}
+
+model LabParameterRange {
+  id             Int          @id @default(autoincrement())
+  parameter      LabParameter @relation(fields: [parameterId], references: [id])
+  parameterId    Int
+  gender         Gender?
+  ageMin         Int
+  ageMax         Int
+  normalValueMin Decimal?     @db.Decimal(10, 2)
+  normalValueMax Decimal?     @db.Decimal(10, 2)
+  normalText     String?
+  @@index([parameterId])
+}
+
+model LabService {
+  id         Int                   @id @default(autoincrement())
+  name       String                @unique
+  category   LabServiceCategory
+  price      Decimal               @db.Decimal(12, 2)
+  parameters LabServiceParameter[]
+  labOrders  LabOrder[]
+}
+
+model LabServiceParameter {
+  service     LabService   @relation(fields: [serviceId], references: [id])
+  serviceId   Int
+  parameter   LabParameter @relation(fields: [parameterId], references: [id])
+  parameterId Int
+  sortOrder   Int?
+  @@id([serviceId, parameterId])
+}
+
+enum LabOrderStatus {
+  ORDERED
+  IN_PROGRESS
+  PENDING_VALIDATION
+  COMPLETED
+  CANCELLED
+}
+
+model LabOrder {
+  id              Int            @id @default(autoincrement())
+  medicalRecord   MedicalRecord  @relation(fields: [medicalRecordId], references: [id])
+  medicalRecordId Int
+  labService      LabService     @relation(fields: [labServiceId], references: [id])
+  labServiceId    Int
+  status          LabOrderStatus @default(ORDERED)
+  orderDate       DateTime       @default(now())
+  notes           String?
+  interpretation  String?        @db.Text
+  validator       Employee?      @relation("Validator", fields: [validatorId], references: [id])
+  validatorId     Int?
+  validatedAt     DateTime?
+  results         LabResult[]
+  radiologyImages RadiologyImage[]
+  @@index([medicalRecordId])
+  @@index([labServiceId])
+  @@index([validatorId])
+}
+
+model LabResult {
+  id             Int          @id @default(autoincrement())
+  labOrder       LabOrder     @relation(fields: [labOrderId], references: [id])
+  labOrderId     Int
+  labParameter   LabParameter @relation(fields: [labParameterId], references: [id])
+  labParameterId Int
+  value          String
+  isAbnormal     Boolean      @default(false)
+  notes          String?
+  @@index([labOrderId])
+  @@index([labParameterId])
+}
+
+model RadiologyImage {
+  id          Int      @id @default(autoincrement())
+  labOrder    LabOrder @relation(fields: [labOrderId], references: [id])
+  labOrderId  Int
+  imageUrl    String
+  description String?
+  uploadedAt  DateTime @default(now())
+  @@index([labOrderId])
+}
+
+// ==========================================
+// MODUL FARMASI & OBAT
+// ==========================================
+model Drug {
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  unit                 String
+  sellingPrice         Decimal               @db.Decimal(12, 2) @default(0)
+  createdAt            DateTime              @default(now())
+  stocks               DrugStock[]
+  prescriptionItems    PrescriptionItem[]
+  invoiceItems         InvoiceItem[]
+  purchaseInvoiceItems PurchaseInvoiceItem[]
+}
+
+model DrugStock {
+  id         Int      @id @default(autoincrement())
+  drug       Drug     @relation(fields: [drugId], references: [id])
+  drugId     Int
+  branch     Branch   @relation(fields: [branchId], references: [id])
+  branchId   Int
+  quantity   Int
+  expiryDate DateTime
+  updatedAt  DateTime @updatedAt
+  @@unique([drugId, branchId, expiryDate])
+}
+
+model Prescription {
+  id              Int                @id @default(autoincrement())
+  medicalRecord   MedicalRecord      @relation(fields: [medicalRecordId], references: [id])
+  medicalRecordId Int                // <-- @unique DIHAPUS DARI SINI (BUG FIX)
+  createdAt       DateTime           @default(now())
+  items           PrescriptionItem[]
+}
+
+model PrescriptionItem {
+  id             Int          @id @default(autoincrement())
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  prescriptionId Int
+  drug           Drug         @relation(fields: [drugId], references: [id], map: "PrescriptionItem_drugId_fkey") // <-- MAP DITAMBAHKAN
+  drugId         Int
+  quantity       Int
+  dosage         String
+}
+
+// ==========================================
+// MODUL MANAJEMEN ASET
+// ==========================================
 model Asset {
-  id                String      @id @default(cuid())
-  productName       String
-  status            AssetStatus @default(BAIK)
-  purchaseDate      DateTime
-  location          Location    @relation(fields: [locationId], references: [id])
-  locationId        Int
-  picName           String?
-  picContact        String?
-  assetType         String
-  barcode           String      @unique
-  price             Decimal     @db.Decimal(12, 2)
-  usefulLife        Int
-  salvageValue      Decimal     @db.Decimal(12, 2)
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  imageUrl          String?
-  productionYear    Int?
-  distributor       String?
-  calibrationDate   DateTime?
-  calibrationPeriod Int?
-  
-  // Kolom dari migrasi yang hilang
-  accessories       String?
-  position          String?
-
-  maintenances Maintenance[]
-  logs         AssetLog[]
+  id                   String      @id @default(cuid())
+  productName          String
+  status               AssetStatus @default(BAIK)
+  purchaseDate         DateTime
+  branch               Branch      @relation(fields: [branchId], references: [id])
+  branchId             Int
+  picName              String?
+  picContact           String?
+  assetType            String
+  barcode              String      @unique
+  price                Decimal     @db.Decimal(12, 2)
+  usefulLife           Int
+  salvageValue         Decimal     @db.Decimal(12, 2)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  imageUrl             String?
+  productionYear       Int?
+  distributor          String?
+  calibrationDate      DateTime?
+  calibrationPeriod    Int?
+  accessories          String?
+  position             String?
+  paymentMethod        String
+  lastDepreciationDate DateTime?
+  maintenances         Maintenance[]
+  logs                 AssetLog[]
 }
 
 enum AssetStatus {
@@ -88,10 +417,8 @@ model Maintenance {
   assetId        String
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
-
-  // Relasi ke User
-  recordedById   Int?
   recordedBy     User?             @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedById   Int?
 }
 
 enum MaintenanceStatus {
@@ -102,14 +429,179 @@ enum MaintenanceStatus {
 }
 
 model AssetLog {
-  id          String   @id @default(cuid())
-  activity    String
-  description String
-  createdAt   DateTime @default(now())
-  assetId     String
-  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-
-  // Relasi ke User yang sudah diperbaiki
-  recordedById Int?
+  id           String   @id @default(cuid())
+  activity     String
+  description  String
+  createdAt    DateTime @default(now())
+  asset        Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetId      String
   recordedBy   User?    @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedById Int?
 }
+
+// ==========================================
+// MODUL KEUANGAN & PEMBAYARAN
+// ==========================================
+model Invoice {
+  id            Int           @id @default(autoincrement())
+  invoiceNumber String        @unique
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  patientId     Int
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  branchId      Int
+  appointment   Appointment   @relation(fields: [appointmentId], references: [id])
+  appointmentId Int           @unique
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  status        InvoiceStatus @default(UNPAID)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  payments      Payment[]
+  items         InvoiceItem[]
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  PARTIALLY_PAID
+  CANCELLED
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId     Int
+  amount        Decimal  @db.Decimal(12, 2)
+  paymentMethod String
+  paymentDate   DateTime @default(now())
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId   Int
+  drug        Drug?    @relation(fields: [drugId], references: [id], map: "InvoiceItem_drugId_fkey") // <-- MAP DITAMBAHKAN
+  drugId      Int?
+  service     Service? @relation(fields: [serviceId], references: [id], map: "InvoiceItem_serviceId_fkey") // <-- MAP DITAMBAHKAN
+  serviceId   Int?     // <-- PERBAIKAN DI SINI
+  description String
+  quantity    Int
+  price       Decimal  @db.Decimal(12, 2)
+  total       Decimal  @db.Decimal(12, 2)
+
+  @@index([invoiceId])
+  @@index([drugId])
+  @@index([serviceId])
+}
+
+// ==========================================
+// MODUL PEMBELIAN & HUTANG USAHA
+// ==========================================
+model Supplier {
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  contactPerson    String?
+  phone            String?
+  address          String?
+  createdAt        DateTime          @default(now())
+  purchaseInvoices PurchaseInvoice[]
+}
+
+model PurchaseInvoice {
+  id                Int                   @id @default(autoincrement())
+  internalRefNumber String                @unique
+  invoiceNumber     String
+  supplier          Supplier              @relation(fields: [supplierId], references: [id])
+  supplierId        Int
+  branch            Branch                @relation(fields: [branchId], references: [id])
+  branchId          Int
+  transactionDate   DateTime
+  totalAmount       Decimal               @db.Decimal(12, 2)
+  paymentMethod     String
+  status            String
+  createdAt         DateTime              @default(now())
+  items             PurchaseInvoiceItem[]
+
+  @@index([supplierId])
+  @@index([branchId])
+}
+
+model PurchaseInvoiceItem {
+  id                Int             @id @default(autoincrement())
+  purchaseInvoice   PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id])
+  purchaseInvoiceId Int
+  drug              Drug            @relation(fields: [drugId], references: [id], map: "PurchaseInvoiceItem_drugId_fkey") // <-- MAP DITAMBAHKAN
+  drugId            Int
+  quantity          Int
+  purchasePrice     Decimal         @db.Decimal(12, 2)
+  totalPrice        Decimal         @db.Decimal(12, 2)
+  expiryDate        DateTime
+
+  @@index([purchaseInvoiceId])
+  @@index([drugId])
+}
+
+// ==========================================
+// MODUL AKUNTANSI
+// ==========================================
+enum PaymentAccountMapping {
+  NONE
+  CASH_RECEIPT
+  SERVICE_REVENUE
+  DRUG_REVENUE
+  INVENTORY_ASSET
+  ACCOUNTS_PAYABLE
+  FIXED_ASSET
+  ACCUMULATED_DEPRECIATION
+  DEPRECIATION_EXPENSE
+  ASSET_DISPOSAL_LOSS
+  SALARY_EXPENSE
+  SALARY_PAYABLE
+}
+
+model ChartOfAccount {
+  id             Int                   @id @default(autoincrement())
+  accountCode    String                @unique
+  accountName    String
+  category       AccountCategory
+  paymentMapping PaymentAccountMapping @default(NONE)
+  journalItems   JournalEntryItem[]
+
+  @@index([paymentMapping])
+}
+
+enum AccountCategory {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model JournalEntry {
+  id              Int                @id @default(autoincrement())
+  transactionDate DateTime
+  description     String
+  createdAt       DateTime           @default(now())
+  branch          Branch             @relation(fields: [branchId], references: [id])
+  branchId        Int
+  items           JournalEntryItem[]
+  payroll         Payroll?
+
+  @@index([branchId])
+}
+
+model JournalEntryItem {
+  id                 Int              @id @default(autoincrement())
+  journalEntry       JournalEntry     @relation(fields: [journalEntryId], references: [id])
+  journalEntryId     Int
+  chartOfAccount     ChartOfAccount   @relation(fields: [chartOfAccountId], references: [id])
+  chartOfAccountId   Int
+  type               JournalType
+  amount             Decimal          @db.Decimal(12, 2)
+}
+
+enum JournalType {
+  DEBIT
+  CREDIT
+}
+

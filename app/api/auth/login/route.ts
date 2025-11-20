@@ -1,9 +1,9 @@
+// File: app/api/auth/login/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "@/lib/prisma"; // <-- PERBAIKAN: Import dari file singleton
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
@@ -19,7 +19,15 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
-        role: true,
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -36,21 +44,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Password salah" }, { status: 401 });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role.name },
-      process.env.JWT_SECRET!,
-      { expiresIn: "1h" }
+    // Ambil daftar 'action' dari permissions
+    const permissions = user.role.permissions.map(
+      (p) => p.permission.action
     );
+
+    const tokenPayload = {
+      userId: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role.name,
+      permissions: permissions, // <-- Masukkan permissions ke token
+    };
+
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET!, {
+      expiresIn: "8h", // Perpanjang durasi token
+    });
 
     return NextResponse.json({
       message: "Login berhasil",
       token,
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role.name,
-      },
+      user: tokenPayload, // Kirim payload token sebagai data user
     });
   } catch (err) {
     console.error("Login error:", err);

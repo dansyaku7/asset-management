@@ -1,85 +1,70 @@
+// File: components/AuthContext.tsx
+
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { jwtDecode } from 'jwt-decode';
 
-// Definisikan tipe data untuk user dan context
-interface User {
-  id: string;
-  fullName: string;
-  email: string;
-  role: 'superadmin' | 'accounting' | 'administrasi' | string;
+interface DecodedUser {
+    userId: number;
+    fullName: string;
+    email: string;
+    role: string;
+    permissions: string[];
 }
 
 interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  login: (userData: User, token: string) => void;
-  logout: () => void;
-  isLoading: boolean;
+    user: DecodedUser | null;
+    logout: () => void;
+    isAuthenticated: boolean;
+    hasPermission: (permission: string) => boolean;
+    isLoading: boolean;
 }
 
-// Buat context dengan nilai default
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Buat Provider Component
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+    const [user, setUser] = useState<DecodedUser | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    try {
-      const storedToken = localStorage.getItem('authToken');
-      const storedUser = localStorage.getItem('user');
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Failed to parse user from localStorage", error);
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-    } finally {
-      setIsLoading(false);
+    useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            try {
+                const decoded: DecodedUser = jwtDecode(token);
+                setUser(decoded);
+            } catch (error) {
+                console.error("Invalid token:", error);
+                localStorage.removeItem('authToken');
+                setUser(null);
+            }
+        }
+        setIsLoading(false);
+    }, []);
+
+    const logout = () => {
+        localStorage.removeItem('authToken');
+        setUser(null);
+        window.location.href = '/';
+    };
+
+    const hasPermission = (permission: string): boolean => {
+        if (!user) return false;
+        if (user.role === 'SUPER_ADMIN') return true;
+        return user.permissions.includes(permission);
+    };
+
+    const isAuthenticated = !!user;
+
+    const value = { user, logout, isAuthenticated, hasPermission, isLoading };
+
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
     }
-  }, []);
-
-  const login = (userData: User, token: string) => {
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
-    setToken(token);
-    router.push('/dashboardMain'); // Redirect ke dashboard utama
-  };
-
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    setUser(null);
-    setToken(null);
-    // DIUBAH: Arahkan ke halaman login utama di root '/'
-    router.push('/'); 
-  };
-
-  const value = {
-    user,
-    token,
-    login,
-    logout,
-    isLoading,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-// Buat custom hook untuk mempermudah penggunaan context
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
+    return context;
+};

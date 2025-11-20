@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, FormEvent } from "react";
-import { useAuth } from "@/components/AuthContext";
+import { useRouter } from "next/navigation"; // <-- IMPORT useRouter
+import { Loader2 } from "lucide-react"; // <-- Import LoaderIcon
 
+// Komponen Ikon Mata (dari kode lu)
 const EyeIcon = ({ className }: { className?: string }) => (
   <svg
     className={className}
@@ -16,9 +18,8 @@ const EyeIcon = ({ className }: { className?: string }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    {" "}
-    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />{" "}
-    <circle cx="12" cy="12" r="3" />{" "}
+    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 );
 const EyeOffIcon = ({ className }: { className?: string }) => (
@@ -34,11 +35,10 @@ const EyeOffIcon = ({ className }: { className?: string }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    {" "}
-    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />{" "}
-    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />{" "}
-    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />{" "}
-    <line x1="2" x2="22" y1="2" y2="22" />{" "}
+    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+    <line x1="2" x2="22" y1="2" y2="22" />
   </svg>
 );
 
@@ -48,7 +48,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const router = useRouter(); // <-- Kita pakai router untuk redirect
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -68,12 +68,24 @@ export default function LoginPage() {
         throw new Error(data.message || "Terjadi kesalahan.");
       }
 
-      login(data.user, data.token);
+      // VVVV--- INI PERBAIKAN UTAMANYA ---VVVV
+      // 1. Hapus panggilan ke login()
+      // login(data.user, data.token); <-- BARIS INI DIHAPUS
+
+      // 2. Simpan token langsung ke localStorage
+      localStorage.setItem("authToken", data.token);
+
+      // 3. Arahkan ke halaman dashboard dengan reload paksa
+      // Ini memastikan AuthContext membaca token yang baru disimpan.
+      window.location.href = "/dashboardMain";
+      // ^^^^--- AKHIR PERBAIKAN ---^^^^
+
     } catch (err: any) {
       setError(err.message);
-    } finally {
+      // Set isLoading ke false HANYA jika terjadi error
       setIsLoading(false);
     }
+    // Jangan set isLoading ke false di 'finally' agar tombol tetap disable saat redirect
   };
 
   return (
@@ -111,8 +123,7 @@ export default function LoginPage() {
                   htmlFor="email"
                   className="block text-sm font-medium text-gray-700"
                 >
-                  {" "}
-                  Email{" "}
+                  Email
                 </label>
                 <div className="mt-1">
                   <input
@@ -134,8 +145,7 @@ export default function LoginPage() {
                   htmlFor="password"
                   className="block text-sm font-medium text-gray-700"
                 >
-                  {" "}
-                  Password{" "}
+                  Password
                 </label>
                 <div className="mt-1 relative">
                   <input
@@ -175,21 +185,9 @@ export default function LoginPage() {
                     htmlFor="remember-me"
                     className="ml-2 block text-sm text-gray-900"
                   >
-                    {" "}
-                    Remember Me{" "}
+                    Remember Me
                   </label>
                 </div>
-                {/* <div className="text-sm">
-                  <a
-                    href="#"
-                    className="font-medium hover:underline"
-                    style={{ color: "#01449D" }}
-                  >
-                    {" "}
-                    Forgot Your Password?{" "}
-                  </a>
-                </div> 
-                */}
               </div>
 
               <div>
@@ -199,31 +197,15 @@ export default function LoginPage() {
                   className="flex w-full justify-center rounded-md border border-transparent py-3 px-4 text-sm font-medium text-white shadow-sm hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#01449D] disabled:opacity-50"
                   style={{ backgroundColor: "#01449D" }}
                 >
-                  {isLoading ? "Logging in..." : "Log In"}
+                  {isLoading ? <Loader2 className="animate-spin" /> : "Log In"}
                 </button>
               </div>
             </form>
-            {/* <p className="mt-8 text-center text-sm text-gray-500">
-              Don't Have An Account?{" "}
-              <a
-                href="#"
-                className="font-medium hover:underline"
-                style={{ color: "#01449D" }}
-              >
-                {" "}
-                Register Now.{" "}
-              </a>
-            </p> 
-            */}
           </div>
 
           <div className="w-full text-center lg:text-left">
             <p className="text-xs text-gray-400">
               Copyright © 2025 Sim Klinik.
-              <a href="#" className="ml-4 hover:underline">
-                {" "}
-                Privacy Policy{" "}
-              </a>
             </p>
           </div>
         </div>
@@ -236,9 +218,7 @@ export default function LoginPage() {
             className="absolute inset-0 h-full w-full"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {" "}
             <defs>
-              {" "}
               <pattern
                 id="wavy"
                 patternUnits="userSpaceOnUse"
@@ -246,24 +226,23 @@ export default function LoginPage() {
                 height="80"
                 patternTransform="rotate(45)"
               >
-                {" "}
                 <path
                   d="M 0 20 Q 10 10, 20 20 T 40 20"
                   stroke="#ffffff"
                   strokeWidth="1"
                   fill="none"
                   strokeOpacity="0.1"
-                />{" "}
+                />
                 <path
                   d="M 0 60 Q 10 50, 20 60 T 40 60"
                   stroke="#ffffff"
                   strokeWidth="1"
                   fill="none"
                   strokeOpacity="0.1"
-                />{" "}
-              </pattern>{" "}
-            </defs>{" "}
-            <rect width="100%" height="100%" fill="url(#wavy)" />{" "}
+                />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#wavy)" />
           </svg>
           <div className="relative z-10 flex flex-col items-center text-center max-w-lg">
             <img
