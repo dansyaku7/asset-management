@@ -115,7 +115,6 @@ export async function GET() {
   }
 }
 
-// --- FUNGSI POST (DENGAN PERBAIKAN TIPE DATA) ---
 export async function POST(req: NextRequest) {
     const decodedToken = await verifyAuth(req);
     if (!decodedToken || !decodedToken.userId) {
@@ -129,7 +128,6 @@ export async function POST(req: NextRequest) {
         if (!allowedRoles.includes(user.role.name)) return NextResponse.json({ message: "Akses ditolak." }, { status: 403 });
 
         const body = await req.json();
-        // VVVV--- PERUBAHAN: Ambil semua field secara eksplisit ---VVVV
         const {
             productName, purchaseDate, branchId, assetType, price,
             usefulLife, salvageValue, paymentMethod,
@@ -145,7 +143,6 @@ export async function POST(req: NextRequest) {
 
         const newAsset = await prisma.$transaction(async (tx) => {
             const asset = await tx.asset.create({
-                // VVVV--- PERUBAHAN: Buat data object secara manual & aman ---VVVV
                 data: {
                     productName,
                     barcode: generateBarcode(productName),

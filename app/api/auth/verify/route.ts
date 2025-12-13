@@ -5,10 +5,8 @@ import { verifyAuth } from "@/lib/auth-helper";
 import prisma from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  // Coba verifikasi token yang dikirim dari client
   const decodedToken = await verifyAuth(req);
 
-  // Jika token tidak valid atau tidak ada, kirim error
   if (!decodedToken || !decodedToken.userId) {
     return NextResponse.json({ isValid: false, message: "Sesi tidak valid." }, { status: 401 });
   }

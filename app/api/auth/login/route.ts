@@ -54,11 +54,11 @@ export async function POST(req: NextRequest) {
       fullName: user.fullName,
       email: user.email,
       role: user.role.name,
-      permissions: permissions, // <-- Masukkan permissions ke token
+      permissions: permissions, 
     };
 
     const token = jwt.sign(tokenPayload, process.env.JWT_SECRET!, {
-      expiresIn: "8h", // Perpanjang durasi token
+      expiresIn: "8h", 
     });
 
     return NextResponse.json({

@@ -14,16 +14,13 @@ interface DecodedToken {
 export const verifyAuth = async (
   req: NextRequest
 ): Promise<DecodedToken | null> => {
-  // 1. Ambil token dari header 'Authorization'
   const authHeader = req.headers.get("authorization");
 
-  // 2. Cek apakah header ada dan formatnya benar ("Bearer ...")
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     console.error("Token tidak ada atau formatnya salah.");
     return null;
   }
 
-  // 3. Ekstrak token dari header
   const token = authHeader.split(" ")[1];
 
   if (!token) {
@@ -31,7 +28,6 @@ export const verifyAuth = async (
     return null;
   }
 
-  // 4. Verifikasi token menggunakan secret key
   try {
     const decoded = jwt.verify(
       token,
