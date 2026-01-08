@@ -44,16 +44,9 @@ const StaffFormModal = ({ isOpen, onClose, onSave, roles, branches, staffToEdit 
 
     // --- FILTER ROLE LOGIC (Fix: Hapus Super Admin, Tambah Analis) ---
     const staffRoles = roles.filter(r => {
-        const name = r.name.toUpperCase();
-        // Exclude Super Admin
-        if (name.includes('SUPER') || name.includes('OWNER')) return false;
-        
-        // Include spesifik role
-        return name.includes('STAFF') || 
-               name.includes('KASIR') || 
-               name.includes('ADMIN') || 
-               name.includes('ANALIS') ||
-               name.includes('FARMASI');
+    const name = r.name.toUpperCase();
+    // Cuma blokir Super Admin & Owner, sisanya LOLOS SEMUA
+    return !name.includes('SUPER') && !name.includes('OWNER');
     });
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
