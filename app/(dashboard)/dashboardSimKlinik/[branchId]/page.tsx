@@ -1,19 +1,17 @@
-// File: app/(dashboard)/dashboardSimKlinik/[branchId]/page.tsx
-// Versi perbaikan dengan UI modern, responsif, dan skeleton loading (tanpa dependensi Next.js)
-
 'use client';
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
+import { useParams } from 'next/navigation'; // Wajib untuk App Router
 
-// Mock Branch type, sesuaikan dengan definisi Prisma Anda
+// --- Types ---
 interface Branch {
-    id: string;
+    id: string | number;
     name: string;
-    // tambahkan properti lain jika ada
+    // tambahkan properti lain jika perlu
 }
 
-// --- Icons (dibuat sebagai komponen agar lebih rapi) ---
+// --- Icons Components ---
 const UsersIcon = (props: React.SVGProps<SVGSVGElement>) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const ClipboardListIcon = (props: React.SVGProps<SVGSVGElement>) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>;
 const CalendarIcon = (props: React.SVGProps<SVGSVGElement>) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
@@ -25,10 +23,9 @@ const TruckIcon = (props: React.SVGProps<SVGSVGElement>) => <svg xmlns="http://w
 const LayoutGridIcon = (props: React.SVGProps<SVGSVGElement>) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>;
 const HandIcon = (props: React.SVGProps<SVGSVGElement>) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M18 18h-2.29a2 2 0 0 0-1.95 1.52L12.5 22V9.5a2.5 2.5 0 0 0-5 0V18"/><path d="M5 18h2.29a2 2 0 0 1 1.95 1.52L10.5 22V9.5a2.5 2.5 0 0 1 5 0V18"/><path d="M2 14h20"/><path d="M2 18h2.29a2 2 0 0 0 1.95-1.52L7.5 14"/></svg>;
 
-// --- Komponen UI yang Diperbarui ---
-
+// --- UI Components ---
 const StatCard = ({ title, value, icon, color, isLoading }: { title: string, value: string, icon: React.ReactNode, color: string, isLoading?: boolean }) => {
-    const colorClasses = {
+    const colorClasses: Record<string, string> = {
         blue: 'bg-blue-100 text-blue-600',
         green: 'bg-green-100 text-green-600',
     };
@@ -63,33 +60,23 @@ const QuickLink = ({ title, href, icon }: { title: string, href: string, icon: R
 
 const WelcomeBanner = ({ branchName }: { branchName: string }) => (
     <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-xl shadow-lg flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Selamat Datang di Cabang Klinik {branchName}</h2>
+        <h2 className="text-2xl font-bold">Selamat Datang di Cabang {branchName}</h2>
         <HandIcon className="w-12 h-12 text-yellow-300 opacity-80 hidden md:block" />
     </div>
 );
 
-// --- Skeleton Loader untuk Pengalaman Pengguna yang Lebih Baik ---
 const DashboardSkeleton = () => (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-6 lg:p-8 animate-pulse">
         <main className="max-w-7xl mx-auto space-y-8">
-             {/* Welcome Banner Skeleton */}
              <div className="h-24 bg-gray-200 rounded-xl"></div>
-             {/* Stats Skeleton */}
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="h-24 bg-gray-200 rounded-xl"></div>
                 <div className="h-24 bg-gray-200 rounded-xl"></div>
             </div>
-            {/* Quick Links Skeleton */}
             <div>
                 <div className="h-8 w-1/4 bg-gray-200 rounded-lg mb-4"></div>
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                    <div className="h-28 bg-gray-200 rounded-xl"></div>
-                    <div className="h-28 bg-gray-200 rounded-xl"></div>
-                    <div className="h-28 bg-gray-200 rounded-xl"></div>
-                    <div className="h-28 bg-gray-200 rounded-xl"></div>
-                    <div className="h-28 bg-gray-200 rounded-xl"></div>
-                    <div className="h-28 bg-gray-200 rounded-xl"></div>
-                    <div className="h-28 bg-gray-200 rounded-xl"></div>
+                    {Array.from({length:7}).map((_,i) => <div key={i} className="h-28 bg-gray-200 rounded-xl"></div>)}
                 </div>
             </div>
         </main>
@@ -98,11 +85,16 @@ const DashboardSkeleton = () => (
 
 
 export default function BranchDashboardPage() {
-    const [branchId, setBranchId] = useState<string | null>(null);
+    // 1. GUNAKAN USEPARAMS (Fix Utama)
+    const params = useParams();
+    // Pastikan ID diambil dengan aman (handle jika array)
+    const branchId = Array.isArray(params.branchId) ? params.branchId[0] : params.branchId;
+
     const [branch, setBranch] = useState<Branch | null>(null);
     const [stats, setStats] = useState({ patientCount: 0, visitsToday: 0 });
     const [isLoading, setIsLoading] = useState(true);
     
+    // Inject Toastify CSS jika belum ada
     useEffect(() => {
         const styleId = 'react-toastify-css';
         if (!document.getElementById(styleId)) {
@@ -114,21 +106,10 @@ export default function BranchDashboardPage() {
         }
     }, []);
 
-    useEffect(() => {
-        const pathParts = window.location.pathname.split('/');
-        const id = pathParts.pop() || pathParts.pop();
-        if (id) {
-            setBranchId(id);
-        } else {
-            setIsLoading(false);
-            toast.error("Tidak dapat menemukan ID cabang di URL.");
-        }
-    }, []);
-
     const getToken = () => typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
 
     const fetchData = useCallback(async () => {
-        if (!branchId) return;
+        if (!branchId) return; // Tunggu sampai branchId tersedia dari params
 
         setIsLoading(true);
         const token = getToken();
@@ -139,32 +120,44 @@ export default function BranchDashboardPage() {
         }
         
         try {
+            // Load data cabang dan statistik secara paralel
             const [branchRes, statsRes] = await Promise.all([
                 fetch('/api/v1/management/branches', { headers: { 'Authorization': `Bearer ${token}` } }),
                 fetch(`/api/v1/clinic/dashboard-stats/${branchId}`, { headers: { 'Authorization': `Bearer ${token}` } })
             ]);
 
-            if (!branchRes.ok) throw new Error(`Gagal memuat detail cabang (Error: ${branchRes.status})`);
-            if (!statsRes.ok) throw new Error(`Gagal memuat statistik (Error: ${statsRes.status})`);
+            if (!branchRes.ok) throw new Error(`Gagal memuat cabang (Status: ${branchRes.status})`);
+            
+            // Handle stats error terpisah agar tidak memblokir UI utama
+            if (!statsRes.ok) console.warn("Gagal memuat statistik dashboard.");
 
             const branches: Branch[] = await branchRes.json();
-            const currentBranch = branches.find(b => b.id.toString() === branchId);
             
-            if (!currentBranch) throw new Error('Cabang dengan ID ini tidak ditemukan.');
+            // 2. LOGIC PENCARIAN YANG KUAT (Fix Kedua)
+            // Konversi ke String agar aman (misal DB number vs URL string)
+            const currentBranch = branches.find(b => String(b.id) === String(branchId));
+            
+            if (!currentBranch) throw new Error(`Cabang dengan ID ${branchId} tidak ditemukan.`);
             
             setBranch(currentBranch);
-            setStats(await statsRes.json());
+            
+            if (statsRes.ok) {
+                setStats(await statsRes.json());
+            }
             
         } catch (error: any) {
-            toast.error(error.message);
+            console.error("Dashboard Error:", error);
+            toast.error(error.message || "Gagal memuat data.");
         } finally {
-            setTimeout(() => setIsLoading(false), 500);
+            setIsLoading(false);
         }
-    }, [branchId]);
+    }, [branchId]); 
 
     useEffect(() => {
         if (branchId) {
             fetchData();
+        } else {
+            setIsLoading(false);
         }
     }, [branchId, fetchData]);
 
@@ -174,13 +167,16 @@ export default function BranchDashboardPage() {
 
     if (!branch) {
         return (
-            <div className="flex items-center justify-center h-screen bg-slate-50">
+            <div className="flex items-center justify-center h-screen bg-slate-50 flex-col gap-4">
                 <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-red-600">Cabang Tidak Ditemukan</h2>
-                    <p className="text-gray-500 mt-2">Pastikan URL sudah benar atau kembali ke halaman utama.</p>
-                     <a href="/dashboardSimKlinik" className="mt-4 inline-block bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 no-underline">
-                        Kembali
+                <div className="text-center p-8 bg-white rounded-xl shadow-lg border border-gray-200">
+                    <div className="text-red-500 mb-2">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-800">Cabang Tidak Ditemukan</h2>
+                    <p className="text-gray-500 mt-2">ID Cabang: <span className="font-mono bg-gray-100 px-1 rounded">{branchId || 'Tidak diketahui'}</span></p>
+                    <a href="/dashboardSimKlinik" className="mt-6 inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium transition-colors no-underline">
+                        Kembali ke Dashboard Utama
                     </a>
                 </div>
             </div>
@@ -198,7 +194,7 @@ export default function BranchDashboardPage() {
                     {/* Statistik Utama */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <StatCard 
-                            title="Total Pasien Terdaftar di Cabang Ini" 
+                            title="Total Pasien Terdaftar" 
                             value={stats.patientCount.toString()} 
                             icon={<UsersIcon />}
                             color="blue"
@@ -215,43 +211,17 @@ export default function BranchDashboardPage() {
                     
                     {/* Aksi Cepat / Quick Actions */}
                     <div>
-                        <h2 className="text-xl font-bold text-gray-700 mb-4">Akses Cepat</h2>
+                        <h2 className="text-xl font-bold text-gray-700 mb-4 flex items-center gap-2">
+                             <LayoutGridIcon className="w-5 h-5"/> Menu Cabang
+                        </h2>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                             <QuickLink 
-                                title="Dashboard Klinik" 
-                                href={`/dashboardSimKlinik/${branchId}/dashboard`} 
-                                icon={<LayoutGridIcon />}
-                            />
-                            <QuickLink 
-                                title="Antrean & Jadwal" 
-                                href={`/dashboardSimKlinik/${branchId}/appointments`} 
-                                icon={<CalendarIcon />}
-                            />
-                            <QuickLink 
-                                title="Kasir & Pembayaran" 
-                                href={`/dashboardSimKlinik/${branchId}/cashier`} 
-                                icon={<DollarSignIcon />}
-                            />
-                            <QuickLink 
-                                title="Stock Obat" 
-                                href={`/dashboardSimKlinik/master-data/drug-stock`} 
-                                icon={<PillIcon />}
-                            />
-                             <QuickLink 
-                                title="Pembelian Stok Obat" 
-                                href={`/dashboardSimKlinik/${branchId}/purchases`} 
-                                icon={<TruckIcon />}
-                            />
-                             <QuickLink 
-                                title="Meja Kerja Lab" 
-                                href={`/dashboardSimKlinik/${branchId}/lab`} 
-                                icon={<LabIcon />}
-                            />
-                             <QuickLink 
-                                title="Validasi Hasil Lab" 
-                                href={`/dashboardSimKlinik/${branchId}/lab/validation`} 
-                                icon={<ClipboardCheckIcon />}
-                            />
+                             <QuickLink title="Dashboard" href={`/dashboardSimKlinik/${branchId}/dashboard`} icon={<LayoutGridIcon />} />
+                             <QuickLink title="Antrean" href={`/dashboardSimKlinik/${branchId}/appointments`} icon={<CalendarIcon />} />
+                             <QuickLink title="Kasir" href={`/dashboardSimKlinik/${branchId}/cashier`} icon={<DollarSignIcon />} />
+                             <QuickLink title="Stok Obat" href={`/dashboardSimKlinik/master-data/drug-stock`} icon={<PillIcon />} />
+                             <QuickLink title="Beli Obat" href={`/dashboardSimKlinik/${branchId}/purchases`} icon={<TruckIcon />} />
+                             <QuickLink title="Lab" href={`/dashboardSimKlinik/${branchId}/lab`} icon={<LabIcon />} />
+                             <QuickLink title="Validasi Lab" href={`/dashboardSimKlinik/${branchId}/lab/validation`} icon={<ClipboardCheckIcon />} />
                         </div>
                     </div>
 
@@ -260,4 +230,3 @@ export default function BranchDashboardPage() {
         </Fragment>
     );
 }
-
