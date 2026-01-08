@@ -312,7 +312,7 @@ export default function StaffManagementPage() {
 
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
                     <h1 className="text-3xl font-bold text-gray-800 tracking-tight flex items-center gap-3">
-                        <Users size={28} className="text-blue-600"/> Data Staff (Non-Medis)
+                        <Users size={28} className="text-blue-600"/> Data Staff
                     </h1>
                     <button onClick={() => { setStaffToEdit(null); setIsModalOpen(true); }} className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform transform hover:scale-105 active:scale-95">
                         <UserPlus size={20}/> Daftarkan Staff
@@ -340,7 +340,7 @@ export default function StaffManagementPage() {
                            <Users className="mx-auto h-16 w-16 text-gray-300 mb-4"/>
                            <h3 className="text-xl font-bold text-gray-800">Belum Ada Data Staff</h3>
                            <p className="mt-2 text-gray-500 max-w-sm mx-auto">
-                               Data pegawai non-medis seperti Admin, Kasir, atau Analis akan muncul di sini.
+                               Data pegawai seperti Admin, Kasir, atau Analis akan muncul di sini.
                            </p>
                            <button onClick={() => { setStaffToEdit(null); setIsModalOpen(true); }} className="mt-6 text-blue-600 font-semibold hover:text-blue-800 hover:underline">
                                + Tambah Staff Baru
