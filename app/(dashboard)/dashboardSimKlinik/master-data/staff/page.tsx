@@ -46,7 +46,7 @@ const StaffFormModal = ({ isOpen, onClose, onSave, roles, branches, staffToEdit 
     const staffRoles = roles.filter(r => {
     const name = r.name.toUpperCase();
     // Cuma blokir Super Admin & Owner, sisanya LOLOS SEMUA
-    return !name.includes('SUPER') && !name.includes('OWNER');
+    return !name.includes('SUPER') && !name.includes('OWNER') && !name.includes('ACCOUNTING') && !name.includes('ASET_MANAJEMEN');
     });
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
