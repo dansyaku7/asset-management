@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
-// Catatan: Pastikan 'react-toastify/dist/ReactToastify.css' diimpor di file layout utama aplikasi Anda
+import 'react-toastify/dist/ReactToastify.css'; // Pastikan CSS ini ada
 import { Branch, Role } from '@prisma/client';
-import { PlusCircle, Edit, Trash2, Loader2, UserPlus, Users, Briefcase, Building } from 'lucide-react';
+import { UserPlus, Users, Briefcase, Building, Edit, Loader2 } from 'lucide-react';
 
 // --- TYPES & HELPERS ---
 
@@ -42,14 +42,42 @@ const StaffFormModal = ({ isOpen, onClose, onSave, roles, branches, staffToEdit 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const isEditing = !!staffToEdit;
 
+    // --- FILTER ROLE LOGIC (Fix: Hapus Super Admin, Tambah Analis) ---
+    const staffRoles = roles.filter(r => {
+        const name = r.name.toUpperCase();
+        // Exclude Super Admin
+        if (name.includes('SUPER') || name.includes('OWNER')) return false;
+        
+        // Include spesifik role
+        return name.includes('STAFF') || 
+               name.includes('KASIR') || 
+               name.includes('ADMIN') || 
+               name.includes('ANALIS') ||
+               name.includes('FARMASI');
+    });
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setIsSubmitting(true);
         const formData = new FormData(e.currentTarget);
+
+        // Logic Auto-Position (Opsional: biar user gak capek ngetik)
+        const roleId = Number(formData.get('roleId'));
+        const selectedRole = roles.find(r => r.id === roleId);
+        let currentPosition = formData.get('position') as string;
+
+        // Kalau user kosongin posisi, kita isi default berdasarkan role
+        if (!currentPosition || currentPosition.trim() === "") {
+            if (selectedRole?.name.toUpperCase().includes('ANALIS')) currentPosition = "Analis Laboratorium";
+            else if (selectedRole?.name.toUpperCase().includes('KASIR')) currentPosition = "Kasir Klinik";
+            else if (selectedRole?.name.toUpperCase().includes('ADMIN')) currentPosition = "Staff Administrasi";
+            else currentPosition = "Staff Operasional";
+        }
+
         const payload = {
             ...Object.fromEntries(formData.entries()),
-            position: "Staff Klinik",
-            roleId: Number(formData.get('roleId')),
+            position: currentPosition, 
+            roleId: roleId,
             hireDate: formData.get('hireDate'),
             userId: staffToEdit?.user.id, // Diperlukan untuk update
         };
@@ -60,8 +88,6 @@ const StaffFormModal = ({ isOpen, onClose, onSave, roles, branches, staffToEdit 
             setIsSubmitting(false);
         }
     };
-
-    const staffRoles = roles.filter(r => r.name.toUpperCase().includes('STAFF') || r.name.toUpperCase().includes('KASIR') || r.name.toUpperCase().includes('ADMIN'));
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300">
@@ -87,15 +113,16 @@ const StaffFormModal = ({ isOpen, onClose, onSave, roles, branches, staffToEdit 
                         <label className="block text-sm font-medium text-gray-700 mb-1">Role Sistem</label>
                         <select name="roleId" defaultValue={staffToEdit?.user.role.id} required className="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500">
                             <option value="">Pilih Role...</option>
-                            {staffRoles.map(role => (<option key={role.id} value={role.id}>{role.name}</option>))}
+                            {staffRoles.map(role => (<option key={role.id} value={role.id}>{role.name.replace(/_/g, ' ')}</option>))}
                         </select>
                     </div>
 
                     <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 pt-4">Data Kepegawaian</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Posisi</label>
-                            <input type="text" name="position" value="Staff Pendaftaran" readOnly className="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Posisi / Jabatan</label>
+                            {/* INPUT POSISI SEKARANG BISA DIEDIT (Tidak ReadOnly) */}
+                            <input type="text" name="position" defaultValue={staffToEdit?.position} placeholder="Contoh: Staff Pendaftaran / Analis Lab" required className="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai Kerja</label>
@@ -113,7 +140,7 @@ const StaffFormModal = ({ isOpen, onClose, onSave, roles, branches, staffToEdit 
                     <div className="flex justify-end gap-4 pt-5 mt-4 border-t sticky bottom-0 bg-white py-4">
                         <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition">Batal</button>
                         <button type="submit" disabled={isSubmitting} className="px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:bg-gray-400">
-                            {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+                            {isSubmitting ? <><Loader2 size={18} className="animate-spin inline mr-2"/>Menyimpan...</> : 'Simpan'}
                         </button>
                     </div>
                 </form>
@@ -127,11 +154,11 @@ const StaffCard = ({ employee, onEdit, onToggleStatus }: {
     onEdit: () => void;
     onToggleStatus: () => void;
 }) => (
-     <div className="bg-white rounded-xl shadow-md p-5 border border-gray-200">
+     <div className="bg-white rounded-xl shadow-md p-5 border border-gray-200 hover:shadow-lg transition-shadow duration-300">
         <div className="flex justify-between items-start gap-4">
             <div>
-                <p className="text-xl font-bold text-gray-900">{employee.user.fullName}</p>
-                <p className="text-sm text-gray-500">{employee.user.email}</p>
+                <p className="text-xl font-bold text-gray-900 truncate">{employee.user.fullName}</p>
+                <p className="text-sm text-gray-500 truncate">{employee.user.email}</p>
             </div>
              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${employee.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                 {employee.isActive ? 'Aktif' : 'Nonaktif'}
@@ -142,22 +169,22 @@ const StaffCard = ({ employee, onEdit, onToggleStatus }: {
                 <Briefcase className="w-5 h-5 text-blue-500 flex-shrink-0" />
                 <div>
                     <p className="font-semibold text-gray-800">{employee.position}</p>
-                    <p className="text-xs text-gray-500">Role: {employee.user.role.name}</p>
+                    <p className="text-xs text-gray-500">Role: {employee.user.role.name.replace(/_/g, ' ')}</p>
                 </div>
             </div>
              <div className="flex items-center gap-3 text-sm">
                 <Building className="w-5 h-5 text-blue-500 flex-shrink-0" />
                 <div>
                      <p className="font-semibold text-gray-800">{employee.branch.name}</p>
-                    <p className="text-xs text-gray-500">Tgl. Masuk: {new Date(employee.hireDate).toLocaleDateString('id-ID')}</p>
+                    <p className="text-xs text-gray-500">Tgl. Masuk: {new Date(employee.hireDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
             </div>
         </div>
          <div className="mt-4 border-t border-gray-100 pt-4 flex justify-end items-center gap-3">
-            <button onClick={onToggleStatus} className={`text-sm font-medium ${employee.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}`}>
+            <button onClick={onToggleStatus} className={`text-sm font-medium px-3 py-1 rounded transition ${employee.isActive ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>
                 {employee.isActive ? 'Nonaktifkan' : 'Aktifkan'}
             </button>
-            <button onClick={onEdit} className="flex items-center gap-1.5 text-sm font-medium text-yellow-600 hover:text-yellow-800"><Edit size={16}/> Edit</button>
+            <button onClick={onEdit} className="flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:bg-amber-50 px-3 py-1 rounded transition"><Edit size={16}/> Edit</button>
         </div>
     </div>
 );
@@ -205,6 +232,7 @@ export default function StaffManagementPage() {
             if (!rolesRes.ok) throw new Error('Gagal memuat data roles');
             
             const rawEmployees: EmployeeDetails[] = await employeesRes.json();
+            // Filter: Hanya tampilkan yang BUKAN dokter
             const staffOnly = rawEmployees.filter(e => !e.position.toUpperCase().includes('DOKTER')); 
             
             setEmployees(staffOnly);
@@ -284,14 +312,14 @@ export default function StaffManagementPage() {
 
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
                     <h1 className="text-3xl font-bold text-gray-800 tracking-tight flex items-center gap-3">
-                        <Users size={28}/> Data Staff (Non-Medis)
+                        <Users size={28} className="text-blue-600"/> Data Staff (Non-Medis)
                     </h1>
-                    <button onClick={() => { setStaffToEdit(null); setIsModalOpen(true); }} className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform transform hover:scale-105">
+                    <button onClick={() => { setStaffToEdit(null); setIsModalOpen(true); }} className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform transform hover:scale-105 active:scale-95">
                         <UserPlus size={20}/> Daftarkan Staff
                     </button>
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-6">
                     {isLoading ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {Array.from({ length: 3 }).map((_, i) => <StaffSkeleton key={i} />)}
@@ -308,12 +336,15 @@ export default function StaffManagementPage() {
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-16 px-6 bg-white rounded-lg shadow-sm border">
-                           <Users className="mx-auto h-16 w-16 text-gray-400"/>
-                           <h3 className="mt-4 text-lg font-semibold text-gray-800">Belum Ada Data Staff</h3>
-                           <p className="mt-1 text-sm text-gray-500">
-                               Klik tombol "Daftarkan Staff" untuk menambahkan pegawai baru.
+                        <div className="text-center py-20 px-6 bg-white rounded-xl shadow-sm border border-gray-200">
+                           <Users className="mx-auto h-16 w-16 text-gray-300 mb-4"/>
+                           <h3 className="text-xl font-bold text-gray-800">Belum Ada Data Staff</h3>
+                           <p className="mt-2 text-gray-500 max-w-sm mx-auto">
+                               Data pegawai non-medis seperti Admin, Kasir, atau Analis akan muncul di sini.
                            </p>
+                           <button onClick={() => { setStaffToEdit(null); setIsModalOpen(true); }} className="mt-6 text-blue-600 font-semibold hover:text-blue-800 hover:underline">
+                               + Tambah Staff Baru
+                           </button>
                        </div>
                     )}
                 </div>
