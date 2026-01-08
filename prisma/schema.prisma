@@ -553,6 +553,8 @@ enum PaymentAccountMapping {
   ASSET_DISPOSAL_LOSS
   SALARY_EXPENSE
   SALARY_PAYABLE
+  ACCOUNTS_RECEIVABLE  // Untuk handle pembayaran BPJS/Asuransi (Piutang)
+  COGS_EXPENSE         // Untuk handle HPP otomatis saat obat keluar
 }
 
 model ChartOfAccount {

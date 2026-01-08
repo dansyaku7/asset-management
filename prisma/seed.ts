@@ -1,4 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import { 
+  PrismaClient, 
+  AccountCategory, 
+  PaymentAccountMapping 
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -36,7 +40,7 @@ async function main() {
     { action: 'manage_users', description: 'Dapat mengelola user (tambah, edit, hapus)' },
     { action: 'manage_roles', description: 'Dapat mengelola role dan hak aksesnya' },
     
-    // Akuntansi (Opsional, untuk masa depan)
+    // Akuntansi
     { action: 'view_financial_reports', description: 'Dapat melihat laporan keuangan (Laba Rugi, Neraca)' },
   ];
 
@@ -51,23 +55,21 @@ async function main() {
 
 
   // ==========================================
-  // 2. BUAT ROLES
+  // 2. BUAT ROLES (Balik ke gaya lama lu)
   // ==========================================
   console.log("Creating roles...");
-  const superAdminRole = await prisma.role.upsert({
-    where: { name: "SUPER_ADMIN" },
-    update: {},
-    create: { name: "SUPER_ADMIN" },
-  });
-
-  // Tambahkan role-role lain sesuai kebutuhan
+  
+  const superAdminRole = await prisma.role.upsert({ where: { name: "SUPER_ADMIN" }, update: {}, create: { name: "SUPER_ADMIN" } });
+  
+  // Role Target (Yang mau diisi permissionnya)
   const doctorRole = await prisma.role.upsert({ where: { name: "DOKTER" }, update: {}, create: { name: "DOKTER" } });
   const kasirRole = await prisma.role.upsert({ where: { name: "KASIR" }, update: {}, create: { name: "KASIR" } });
   const analisLabRole = await prisma.role.upsert({ where: { name: "ANALIS_LAB" }, update: {}, create: { name: "ANALIS_LAB" } });
-  const adminRole = await prisma.role.upsert({ where: { name: "ADMIN" }, update: {}, create: { name: "ADMIN" } });
-  const asetRole = await prisma.role.upsert({ where: { name: "ASET_MANAJEMEN" }, update: {}, create: { name: "ASET_MANAJEMEN" } });
-  const accountingRole = await prisma.role.upsert({ where: { name: "ACCOUNTING" }, update: {}, create: { name: "ACCOUNTING" } });
-  
+
+  // Role Sisa (Cuma create doang, permission kosong/nanti)
+  await prisma.role.upsert({ where: { name: "ADMIN" }, update: {}, create: { name: "ADMIN" } });
+  await prisma.role.upsert({ where: { name: "ASET_MANAJEMEN" }, update: {}, create: { name: "ASET_MANAJEMEN" } });
+  await prisma.role.upsert({ where: { name: "ACCOUNTING" }, update: {}, create: { name: "ACCOUNTING" } });
   
   console.log("Roles created/verified.");
 
@@ -75,17 +77,12 @@ async function main() {
   // ==========================================
   // 3. HUBUNGKAN ROLE & PERMISSIONS
   // ==========================================
+  
+  // --- A. SUPER ADMIN (Logika Lama: Dapet SEMUA) ---
   console.log("Connecting SUPER_ADMIN to all permissions...");
-  const allPermissions = await prisma.permission.findMany({
-    select: { id: true }
-  });
+  const allPermissions = await prisma.permission.findMany({ select: { id: true } });
 
-  // Hapus koneksi lama dulu untuk memastikan kebersihan data
-  await prisma.rolePermission.deleteMany({
-    where: { roleId: superAdminRole.id }
-  });
-
-  // Buat koneksi baru
+  await prisma.rolePermission.deleteMany({ where: { roleId: superAdminRole.id } });
   await prisma.rolePermission.createMany({
     data: allPermissions.map(p => ({
       roleId: superAdminRole.id,
@@ -93,28 +90,60 @@ async function main() {
     }))
   });
   console.log("SUPER_ADMIN has been granted all permissions.");
-  
-  // (Opsional) Contoh: Beri hak akses spesifik untuk Dokter
-  // const doctorPermissions = await prisma.permission.findMany({
-  //   where: { action: { in: ['create_rme', 'view_rme_history', 'validate_lab_results'] } }
-  // });
-  // await prisma.rolePermission.deleteMany({ where: { roleId: doctorRole.id } });
-  // await prisma.rolePermission.createMany({
-  //   data: doctorPermissions.map(p => ({ roleId: doctorRole.id, permissionId: p.id }))
-  // });
-  // console.log("DOKTER role permissions set.");
+
+
+  // --- B. ROLE SPESIFIK (Logika Baru: Dapet SESUAI JOBDESC) ---
+  console.log("Assigning specific permissions to DOKTER, KASIR, ANALIS_LAB...");
+
+  const specificRoles = [
+    {
+      roleId: doctorRole.id,
+      roleName: "DOKTER",
+      actions: ['view_dashboard', 'manage_appointments', 'create_rme', 'view_rme_history', 'manage_patients']
+    },
+    {
+      roleId: kasirRole.id,
+      roleName: "KASIR",
+      actions: ['view_dashboard', 'access_cashier', 'manage_patients', 'manage_appointments']
+    },
+    {
+      roleId: analisLabRole.id,
+      roleName: "ANALIS_LAB",
+      actions: ['view_dashboard', 'access_lab_workbench', 'validate_lab_results']
+    }
+  ];
+
+  for (const item of specificRoles) {
+    // 1. Cari ID permission yang sesuai
+    const perms = await prisma.permission.findMany({
+      where: { action: { in: item.actions } },
+      select: { id: true }
+    });
+
+    // 2. Hapus permission lama (biar bersih)
+    await prisma.rolePermission.deleteMany({ where: { roleId: item.roleId } });
+
+    // 3. Insert permission baru
+    if (perms.length > 0) {
+      await prisma.rolePermission.createMany({
+        data: perms.map(p => ({
+          roleId: item.roleId,
+          permissionId: p.id
+        }))
+      });
+      console.log(`Role ${item.roleName} granted ${perms.length} permissions.`);
+    }
+  }
 
 
   // ==========================================
-  // 4. BUAT USERS
+  // 4. BUAT USERS (Logika Lama)
   // ==========================================
   console.log("Creating users...");
   const hashedPasswordSuperAdmin = await bcrypt.hash("superadminsimklinik", 10);
   await prisma.user.upsert({
     where: { email: "superadmin@simklinik.com" },
-    update: {
-      roleId: superAdminRole.id,
-    },
+    update: { roleId: superAdminRole.id },
     create: {
       email: "superadmin@simklinik.com",
       fullName: "Super Admin",
@@ -124,11 +153,132 @@ async function main() {
   });
   console.log("Super Admin user created/updated.");
 
-  // Hapus user lama yang tidak kita pakai lagi untuk sementara
-  // const usersToDelete = ["adminaccounting@simklinik.com", "adminadministrasi@simklinik.com"];
-  // await prisma.user.deleteMany({
-  //   where: { email: { in: usersToDelete } }
-  // });
+
+  // ==========================================
+  // 5. BUAT CHART OF ACCOUNTS (COA) - OPSI B (Lengkap)
+  // ==========================================
+  console.log("Creating Chart of Accounts...");
+
+  const coaData = [
+    // --- ASSET (1xxx) ---
+    {
+      accountCode: '1001',
+      accountName: 'Kas/Bank Penerimaan',
+      category: AccountCategory.ASSET,
+      paymentMapping: PaymentAccountMapping.CASH_RECEIPT
+    },
+    {
+      accountCode: '1002',
+      accountName: 'Bank Operasional',
+      category: AccountCategory.ASSET,
+      paymentMapping: PaymentAccountMapping.NONE
+    },
+    {
+      accountCode: '1101',
+      accountName: 'Piutang Usaha (Asuransi/BPJS)',
+      category: AccountCategory.ASSET,
+      paymentMapping: PaymentAccountMapping.ACCOUNTS_RECEIVABLE
+    },
+    {
+      accountCode: '1201',
+      accountName: 'Persediaan Obat',
+      category: AccountCategory.ASSET,
+      paymentMapping: PaymentAccountMapping.INVENTORY_ASSET
+    },
+    {
+      accountCode: '1301',
+      accountName: 'Aset Tetap (Peralatan)',
+      category: AccountCategory.ASSET,
+      paymentMapping: PaymentAccountMapping.FIXED_ASSET
+    },
+    {
+      accountCode: '1302',
+      accountName: 'Akumulasi Penyusutan',
+      category: AccountCategory.ASSET,
+      paymentMapping: PaymentAccountMapping.ACCUMULATED_DEPRECIATION
+    },
+
+    // --- LIABILITY (2xxx) ---
+    {
+      accountCode: '2101',
+      accountName: 'Hutang Usaha',
+      category: AccountCategory.LIABILITY,
+      paymentMapping: PaymentAccountMapping.ACCOUNTS_PAYABLE
+    },
+    {
+      accountCode: '2102',
+      accountName: 'Hutang Gaji',
+      category: AccountCategory.LIABILITY,
+      paymentMapping: PaymentAccountMapping.SALARY_PAYABLE
+    },
+
+    // --- EQUITY (3xxx) ---
+    {
+      accountCode: '3101',
+      accountName: 'Modal Pemilik',
+      category: AccountCategory.EQUITY,
+      paymentMapping: PaymentAccountMapping.NONE
+    },
+    {
+      accountCode: '3201',
+      accountName: 'Laba Ditahan',
+      category: AccountCategory.EQUITY,
+      paymentMapping: PaymentAccountMapping.NONE
+    },
+
+    // --- REVENUE (4xxx) ---
+    {
+      accountCode: '4101',
+      accountName: 'Pendapatan Jasa Medis',
+      category: AccountCategory.REVENUE,
+      paymentMapping: PaymentAccountMapping.SERVICE_REVENUE
+    },
+    {
+      accountCode: '4102',
+      accountName: 'Pendapatan Obat',
+      category: AccountCategory.REVENUE,
+      paymentMapping: PaymentAccountMapping.DRUG_REVENUE
+    },
+
+    // --- EXPENSE (5xxx) ---
+    {
+      accountCode: '5101',
+      accountName: 'Beban Pokok Pendapatan (HPP)',
+      category: AccountCategory.EXPENSE,
+      paymentMapping: PaymentAccountMapping.COGS_EXPENSE
+    },
+    {
+      accountCode: '5201',
+      accountName: 'Beban Gaji',
+      category: AccountCategory.EXPENSE,
+      paymentMapping: PaymentAccountMapping.SALARY_EXPENSE
+    },
+    {
+      accountCode: '5202',
+      accountName: 'Beban Penyusutan',
+      category: AccountCategory.EXPENSE,
+      paymentMapping: PaymentAccountMapping.DEPRECIATION_EXPENSE
+    },
+    {
+      accountCode: '5901',
+      accountName: 'Kerugian Pelepasan Aset',
+      category: AccountCategory.EXPENSE,
+      paymentMapping: PaymentAccountMapping.ASSET_DISPOSAL_LOSS
+    }
+  ];
+
+  for (const acc of coaData) {
+    await prisma.chartOfAccount.upsert({
+      where: { accountCode: acc.accountCode },
+      update: {
+        accountName: acc.accountName,
+        category: acc.category,
+        paymentMapping: acc.paymentMapping,
+      },
+      create: acc,
+    });
+  }
+  console.log(`Chart of Accounts created/verified (${coaData.length} accounts).`);
 
   console.log("Seeding finished.");
 }
