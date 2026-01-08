@@ -24,6 +24,8 @@ const getMappingText = (mapping: PaymentAccountMapping | null | undefined) => { 
         case PaymentAccountMapping.ASSET_DISPOSAL_LOSS: return "Rugi Pelepasan Aset (Asset Disposal Loss)";
         case PaymentAccountMapping.SALARY_EXPENSE: return "Beban Gaji (Salary Expense)";
         case PaymentAccountMapping.SALARY_PAYABLE: return "Hutang Gaji (Salary Payable)";
+        case PaymentAccountMapping.ACCOUNTS_RECEIVABLE: return "Piutang Usaha (BPJS/Asuransi)";
+        case PaymentAccountMapping.COGS_EXPENSE: return "Beban HPP (Harga Pokok Penjualan)";
         default: return "Tidak Ada Mapping Khusus";
     }
 };
