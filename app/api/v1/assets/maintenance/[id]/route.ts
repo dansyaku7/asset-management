@@ -1,48 +1,49 @@
-// File: app/api/v1/assets/maintenance/[id]/route.ts
-// KODE DENGAN PERBAIKAN TIPE DATA PADA PENCARIAN USER
-
 import { NextResponse, NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { AssetStatus, MaintenanceStatus } from "@prisma/client";
 import { verifyAuth } from "@/lib/auth-helper";
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// FIX TIPE DATA: Params sekarang Promise di Next.js 15+
+type Props = {
+  params: Promise<{ id: string }>;
+};
+
+export async function PUT(req: NextRequest, props: Props) {
+  // 1. AWAIT PARAMS DULU! Jangan langsung akses.
+  const params = await props.params;
+  const maintenanceId = params.id;
+
+  if (!maintenanceId) {
+    return NextResponse.json({ message: "ID tidak valid" }, { status: 400 });
+  }
+
   const decodedToken = await verifyAuth(req);
   if (!decodedToken || !decodedToken.userId) {
-    return NextResponse.json({ message: "Anda harus login terlebih dahulu" }, { status: 401 });
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
   
   try {
-    // --- PERBAIKAN DI SINI ---
-    // Pastikan userId adalah number sebelum dikirim ke Prisma
     const userId = Number(decodedToken.userId);
-    if (isNaN(userId)) {
-        return NextResponse.json({ message: "Token tidak valid" }, { status: 401 });
-    }
+    if (isNaN(userId)) return NextResponse.json({ message: "Token Invalid" }, { status: 401 });
 
     const user = await prisma.user.findUnique({
-      where: { id: userId }, // Gunakan userId yang sudah dikonversi
+      where: { id: userId },
       include: { role: true },
     });
 
-    if (!user) {
-      return NextResponse.json({ message: "User tidak ditemukan" }, { status: 404 });
-    }
+    if (!user) return NextResponse.json({ message: "User tidak ditemukan" }, { status: 404 });
 
     const allowedRoles = ["SUPER_ADMIN", "ASET_MANAJEMEN"];
     if (!allowedRoles.includes(user.role.name)) {
-      return NextResponse.json({ message: "Akses ditolak: Anda tidak memiliki izin untuk mengubah data." }, { status: 403 });
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
     
-    const maintenanceId = params.id;
     const body = await req.json();
 
     const result = await prisma.$transaction(async (tx) => {
+      // Cek eksistensi data dulu
       const currentMaintenance = await tx.maintenance.findUnique({
-        where: { id: maintenanceId },
+        where: { id: maintenanceId }, // Sekarang maintenanceId udah pasti string, bukan undefined
       });
 
       if (!currentMaintenance) {
@@ -61,6 +62,7 @@ export async function PUT(
         },
       });
 
+      // Logic update status asset (Logic lo udah bener disini)
       if (body.status && body.status !== currentMaintenance.status && (body.status === MaintenanceStatus.COMPLETED || body.status === MaintenanceStatus.CANCELLED)) {
         let assetNewStatus = body.status === MaintenanceStatus.COMPLETED ? AssetStatus.BAIK : AssetStatus.RUSAK;
         let logDescription = body.status === MaintenanceStatus.COMPLETED
@@ -75,7 +77,7 @@ export async function PUT(
         await tx.assetLog.create({
           data: {
             assetId: currentMaintenance.assetId,
-            recordedById: userId, // Gunakan userId yang sudah dikonversi
+            recordedById: userId,
             activity: "Hasil Maintenance",
             description: logDescription,
           },
@@ -87,48 +89,38 @@ export async function PUT(
 
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error("Gagal memperbarui maintenance:", error);
-    return NextResponse.json({ message: error.message || "Gagal memperbarui data" }, { status: 500 });
+    console.error("Gagal update:", error);
+    // Return error message yang bersih biar frontend tau
+    return NextResponse.json({ message: error.message || "Server Error" }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: Props) {
+  // FIX SAMA DI SINI: Await params
+  const params = await props.params;
+  const id = params.id;
+
   const decodedToken = await verifyAuth(req);
   if (!decodedToken || !decodedToken.userId) {
-    return NextResponse.json({ message: "Anda harus login terlebih dahulu" }, { status: 401 });
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // --- PERBAIKAN DI SINI JUGA ---
     const userId = Number(decodedToken.userId);
-    if (isNaN(userId)) {
-        return NextResponse.json({ message: "Token tidak valid" }, { status: 401 });
-    }
-
     const user = await prisma.user.findUnique({
-      where: { id: userId }, // Gunakan userId yang sudah dikonversi
+      where: { id: userId },
       include: { role: true },
     });
 
-    if (!user) {
-      return NextResponse.json({ message: "User tidak ditemukan" }, { status: 404 });
+    if (!user || !["SUPER_ADMIN", "ASET_MANAJEMEN"].includes(user.role.name)) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
-    const allowedRoles = ["SUPER_ADMIN", "ASET_MANAJEMEN"];
-    if (!allowedRoles.includes(user.role.name)) {
-      return NextResponse.json({ message: "Akses ditolak: Anda tidak memiliki izin untuk menghapus data." }, { status: 403 });
-    }
-
-    const id = params.id;
     await prisma.maintenance.delete({
       where: { id },
     });
-    return NextResponse.json({ message: "Data maintenance berhasil dihapus" });
+    return NextResponse.json({ message: "Berhasil dihapus" });
   } catch (error) {
-    return NextResponse.json({ message: "Gagal menghapus data maintenance" }, { status: 500 });
+    return NextResponse.json({ message: "Gagal menghapus" }, { status: 500 });
   }
 }
-
